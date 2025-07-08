@@ -2,34 +2,57 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Elapsed Timer from 21/03/2025 22:00</title>
+  <title>Elapsed Timer from Emma</title>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
     .timer { font-size: 2em; color: #333; margin-top: 20px; }
+    .details { font-size: 1.2em; color: #444; margin-top: 12px; }
   </style>
 </head>
 <body>
-  <h1>Elapsed Time Since 21/03/2025 22:00</h1>
+  <h1>Elapsed Time Since Emma</h1>
   <div class="timer" id="timer">Loading...</div>
+  <div class="details" id="details"></div>
   <script>
     const startDate = new Date('2025-03-21T22:00:00');
     function updateTimer() {
       const now = new Date();
       let diff = Math.max(0, now - startDate);
 
+      // Calculate days, hours, minutes, seconds
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      diff -= days * (1000 * 60 * 60 * 24);
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      diff -= hours * (1000 * 60 * 60);
-      const minutes = Math.floor(diff / (1000 * 60));
-      diff -= minutes * (1000 * 60);
-      const seconds = Math.floor(diff / 1000);
+      let remainder = diff % (1000 * 60 * 60 * 24);
+      const hours = Math.floor(remainder / (1000 * 60 * 60));
+      remainder = remainder % (1000 * 60 * 60);
+      const minutes = Math.floor(remainder / (1000 * 60));
+      remainder = remainder % (1000 * 60);
+      const seconds = Math.floor(remainder / 1000);
+
+      // Calculate years and months (calendar-aware)
+      let years = now.getFullYear() - startDate.getFullYear();
+      let months = now.getMonth() - startDate.getMonth();
+      let daysInMonth = now.getDate() - startDate.getDate();
+
+      if (daysInMonth < 0) {
+        // Not a full month yet
+        months--;
+        // Get the last day of the previous month
+        const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        daysInMonth += prevMonth.getDate();
+      }
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
 
       document.getElementById('timer').textContent =
         days + " days, " +
         hours.toString().padStart(2, '0') + ":" +
         minutes.toString().padStart(2, '0') + ":" +
         seconds.toString().padStart(2, '0');
+
+      document.getElementById('details').textContent =
+        years + " years, " + months + " months, and " + daysInMonth + " days";
     }
     updateTimer();
     setInterval(updateTimer, 1000);
