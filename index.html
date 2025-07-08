@@ -19,7 +19,7 @@
       const now = new Date();
       let diff = Math.max(0, now - startDate);
 
-      // Calculate days, hours, minutes, seconds
+      // Calculate total days, hours, minutes, seconds
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       let remainder = diff % (1000 * 60 * 60 * 24);
       const hours = Math.floor(remainder / (1000 * 60 * 60));
@@ -28,13 +28,17 @@
       remainder = remainder % (1000 * 60);
       const seconds = Math.floor(remainder / 1000);
 
-      // Calculate years and months (calendar-aware)
+      // Calendar-aware years, months, days, hours
       let years = now.getFullYear() - startDate.getFullYear();
       let months = now.getMonth() - startDate.getMonth();
       let daysInMonth = now.getDate() - startDate.getDate();
+      let calcHours = now.getHours() - startDate.getHours();
 
+      if (calcHours < 0) {
+        daysInMonth--;
+        calcHours += 24;
+      }
       if (daysInMonth < 0) {
-        // Not a full month yet
         months--;
         // Get the last day of the previous month
         const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -52,7 +56,10 @@
         seconds.toString().padStart(2, '0');
 
       document.getElementById('details').textContent =
-        years + " years, " + months + " months, and " + daysInMonth + " days";
+        years + " years, " +
+        months + " months, " +
+        daysInMonth + " days, " +
+        calcHours + " hours";
     }
     updateTimer();
     setInterval(updateTimer, 1000);
