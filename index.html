@@ -1,10 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>My GitHub Pages Site</title>
+  <meta charset="UTF-8">
+  <title>Elapsed Timer from 21/03/2025 22:00</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    .timer { font-size: 2em; color: #333; margin-top: 20px; }
+  </style>
 </head>
 <body>
-  <h1>Welcome to my website!</h1>
-  <p>This site is hosted for free with GitHub Pages.</p>
+  <h1>Elapsed Time Since 21/03/2025 22:00</h1>
+  <div class="timer" id="timer">Loading...</div>
+  <script>
+    const startDate = new Date('2025-03-21T22:00:00');
+    function updateTimer() {
+      const now = new Date();
+      let diff = Math.max(0, now - startDate);
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      diff -= days * (1000 * 60 * 60 * 24);
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      diff -= hours * (1000 * 60 * 60);
+      const minutes = Math.floor(diff / (1000 * 60));
+      diff -= minutes * (1000 * 60);
+      const seconds = Math.floor(diff / 1000);
+
+      document.getElementById('timer').textContent =
+        days + " days, " +
+        hours.toString().padStart(2, '0') + ":" +
+        minutes.toString().padStart(2, '0') + ":" +
+        seconds.toString().padStart(2, '0');
+    }
+    updateTimer();
+    setInterval(updateTimer, 1000);
+  </script>
 </body>
 </html>
