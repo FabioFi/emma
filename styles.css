@@ -53,7 +53,7 @@ body, html {
     height: 270px;
     margin: 0 auto 1.2em auto;
     overflow: hidden;
-    border-radius: 0 0 120px 120px / 0 0 80px 80px;
+    border-radius: 120px 120px 0 0 / 80px 80px 0 0;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
