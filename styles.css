@@ -1,13 +1,92 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    font-family: 'Lora', serif;
+}
+
 .invito-bg {
-    background-color: #2d2d2d; /* Slightly darker background */
-    color: #ffffff; /* Ensure text is readable */
+    background-color: #2d2d2d;
+    color: #ffffff;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: radial-gradient(#e5d7de 1.5px, transparent 1.5px), 
+                      radial-gradient(#f3ecee 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+    background-position: 0 0, 12px 12px;
+}
+
+.invito-container {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 32px 24px 24px 24px;
+    border-radius: 18px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    text-align: center;
+    max-width: 400px;
+    width: 90%; /* Adjust for smaller screens */
+}
+
+.titolo-emma {
+    font-family: 'Great Vibes', cursive;
+    font-size: 3em;
+    color: #c59fcf;
+    margin-bottom: 0.2em;
+}
+
+.sottotitolo {
+    font-size: 1.2em;
+    color: #8c7a7d;
+    margin-bottom: 0.5em;
+}
+
+.titolo-evento {
+    font-family: 'Lora', serif;
+    font-size: 1.5em;
+    font-style: italic;
+    color: #6c534e;
+    margin-bottom: 1em;
+}
+
+.immagine-arco {
+    width: 220px; /* Set fixed dimensions */
+    height: 270px;
+    margin: 0 auto 1.2em auto;
+    overflow: hidden;
+    border-radius: 120px 120px 0 0 / 80px 80px 0 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.immagine-arco img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Ensure proper scaling */
+}
+
+.dettagli {
+    font-size: 1.1em;
+    color: #6c534e;
+    margin-bottom: 1em;
+}
+
+.data-ora a,
+.luogo a {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+.nota-finale {
+    margin-top: 1.5em;
+    font-size: 1em;
+    color: #6c534e;
+    letter-spacing: 0.03em;
 }
 
 .parteciperai {
     margin-top: 20px;
     padding-top: 20px;
-    border-top: 1px solid #ffffff; /* Divider above the question */
-    font-family: 'Lora', serif; /* Same font used elsewhere */
+    border-top: 1px solid #ffffff;
+    font-family: 'Lora', serif;
 }
 
 .parteciperai h2 {
@@ -16,7 +95,7 @@
 }
 
 .parteciperai button {
-    font-size: 1.2em; /* Larger buttons */
+    font-size: 1.2em;
     padding: 10px 20px;
     border: none;
     border-radius: 5px;
@@ -32,10 +111,4 @@
 .parteciperai button:nth-child(2) {
     background-color: red;
     color: white;
-}
-
-.data-ora a,
-.luogo a {
-    color: #ffffff;
-    text-decoration: underline;
 }
