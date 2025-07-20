@@ -1,158 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <title>Elapsed Timer from Emma</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    :root {
-      --primary: #4f8cff;
-      --secondary: #f4f7fa;
-      --accent: #ffe066;
-      --text: #222;
-      --subtext: #555;
-    }
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      background: var(--secondary);
-    }
-    body {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Segoe UI', 'Arial', sans-serif;
-      color: var(--text);
-      box-sizing: border-box;
-      padding: 0 1rem;
-    }
-    .container {
-      background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 6px 18px rgba(79,140,255,0.07), 0 1.5px 5px rgba(0,0,0,0.04);
-      padding: 2.5rem 2rem 2rem 2rem;
-      max-width: 380px;
-      width: 100%;
-      margin-top: 1rem;
-      margin-bottom: 1rem;
-    }
-    h1 {
-      font-size: 1.7em;
-      font-weight: 600;
-      margin-bottom: 1.2em;
-      color: var(--primary);
-      letter-spacing: 1px;
-    }
-    .timer {
-      font-size: 2.2em;
-      font-weight: 700;
-      background: linear-gradient(90deg, var(--primary), var(--accent));
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 1.2em;
-      margin-top: 0.3em;
-      letter-spacing: 2px;
-      word-break: break-all;
-      text-align: center;
-    }
-    .details {
-      font-size: 1.13em;
-      color: var(--text);
-      background: var(--accent);
-      padding: 0.65em 1em;
-      border-radius: 12px;
-      margin-bottom: 1em;
-      font-weight: 500;
-      text-align: center;
-      letter-spacing: 1px;
-    }
-    .label {
-      display: block;
-      margin-bottom: 0.3em;
-      color: var(--subtext);
-      font-size: 1em;
-      font-weight: 400;
-    }
-    @media (max-width: 490px) {
-      .container {
-        padding: 1.2rem 0.7rem 1.2rem 0.7rem;
-        max-width: 97vw;
-      }
-      h1 {
-        font-size: 1.15em;
-      }
-      .timer {
-        font-size: 1.29em;
-      }
-      .details {
-        font-size: 1em;
-        padding: 0.5em 0.6em;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invito Battesimo Emma</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css?family=Great+Vibes|Lora:400,700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="container">
-    <h1>Elapsed Time Since Emma</h1>
-    <span class="label">Total elapsed time</span>
-    <div class="timer" id="timer">Loading...</div>
-    <span class="label">Calendar elapsed (years, months, days, hours)</span>
-    <div class="details" id="details"></div>
-  </div>
-  <script>
-    const startDate = new Date('2025-03-21T22:00:00');
-    function updateTimer() {
-      const now = new Date();
-      let diff = Math.max(0, now - startDate);
-
-      // Total days, hours, minutes, seconds
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      let remainder = diff % (1000 * 60 * 60 * 24);
-      const hours = Math.floor(remainder / (1000 * 60 * 60));
-      remainder = remainder % (1000 * 60 * 60);
-      const minutes = Math.floor(remainder / (1000 * 60));
-      remainder = remainder % (1000 * 60);
-      const seconds = Math.floor(remainder / 1000);
-
-      // Calendar-aware years, months, days, hours
-      let years = now.getFullYear() - startDate.getFullYear();
-      let months = now.getMonth() - startDate.getMonth();
-      let daysInMonth = now.getDate() - startDate.getDate();
-      let calcHours = now.getHours() - startDate.getHours();
-
-      if (calcHours < 0) {
-        daysInMonth--;
-        calcHours += 24;
-      }
-      if (daysInMonth < 0) {
-        months--;
-        // Get the last day of the previous month
-        const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-        daysInMonth += prevMonth.getDate();
-      }
-      if (months < 0) {
-        years--;
-        months += 12;
-      }
-
-      document.getElementById('timer').textContent =
-        days + " days, " +
-        hours.toString().padStart(2, '0') + ":" +
-        minutes.toString().padStart(2, '0') + ":" +
-        seconds.toString().padStart(2, '0');
-
-      document.getElementById('details').textContent =
-        years + " years, " +
-        months + " months, " +
-        daysInMonth + " days, " +
-        calcHours + " hours";
-    }
-    updateTimer();
-    setInterval(updateTimer, 1000);
-  </script>
+    <div class="invito-bg">
+        <div class="invito-container">
+            <h1 class="titolo-emma">Emma</h1>
+            <div class="sottotitolo">è felice di invitarti al suo</div>
+            <div class="titolo-evento">Santo Battesimo</div>
+            <div class="immagine-arco">
+                <img src="emma-battesimo.jpeg" alt="Emma battesimo"> <!-- Usa l'immagine allegata, rinominala su server-->
+            </div>
+            <div class="dettagli">
+                <div class="data-ora">21 Settembre 2025 | ore 11:00</div>
+                <div class="luogo">Chiesa SS. Fermo e Rustico<br>Colognola ai Colli</div>
+            </div>
+            <div class="nota-finale">A seguire pranzo presso Circolo NOI A. Milani</div>
+        </div>
+    </div>
 </body>
 </html>
