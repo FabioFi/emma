@@ -8,7 +8,29 @@
     <link href="https://fonts.googleapis.com/css?family=Great+Vibes|Lora:400,700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="invito-bg">
+    <!-- Loading Animation -->
+    <div id="loading-screen" class="loading-container">
+        <div class="envelope">
+            <div class="envelope-back"></div>
+            <div class="envelope-front">
+                <div class="envelope-flap"></div>
+            </div>
+            <div class="letter">
+                <div class="letter-content">
+                    <div class="letter-header">Emma</div>
+                    <div class="letter-lines">
+                        <div class="line"></div>
+                        <div class="line"></div>
+                        <div class="line"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="loading-text">Aprendo l'invito...</div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content" class="invito-bg" style="display: none;">
         <div class="invito-container">
             <h1 class="titolo-emma">Emma</h1>
             <div class="sottotitolo">è felice di invitarti al suo</div>
@@ -39,5 +61,29 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Loading animation
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loadingScreen = document.getElementById('loading-screen');
+                const mainContent = document.getElementById('main-content');
+                
+                loadingScreen.style.opacity = '0';
+                loadingScreen.style.transition = 'opacity 0.5s ease-out';
+                
+                setTimeout(function() {
+                    loadingScreen.style.display = 'none';
+                    mainContent.style.display = 'flex';
+                    mainContent.style.opacity = '0';
+                    mainContent.style.transition = 'opacity 0.5s ease-in';
+                    
+                    setTimeout(function() {
+                        mainContent.style.opacity = '1';
+                    }, 50);
+                }, 500);
+            }, 3000); // Show loading for 3 seconds
+        });
+    </script>
 </body>
 </html>
