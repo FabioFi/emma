@@ -126,6 +126,12 @@ def lambda_handler(event, context):
         # Extract action from query parameters
         action = event.get('queryStringParameters', {}).get('action', 'yes') if event.get('queryStringParameters') else 'yes'
         
+        # Debug: Log the action being processed
+        print(f"=== ACTION DEBUG ===")
+        print(f"Query parameters: {event.get('queryStringParameters', {})}")
+        print(f"Extracted action: '{action}'")
+        print("==================")
+        
         # Prepare WhatsApp messages
         messages = {
             'yes': "Ciao! Sarò presente al battesimo di Emma il 21 Settembre 2025. Grazie per l'invito! 🎉",
@@ -135,6 +141,9 @@ def lambda_handler(event, context):
         # URL encode the message properly
         import urllib.parse
         message = messages.get(action, messages['yes'])
+        
+        # Debug: Log the selected message
+        print(f"Selected message for action '{action}': {message}")
         encoded_message = urllib.parse.quote(message, safe='')
         
         whatsapp_url = f"https://wa.me/{phone_number}?text={encoded_message}"

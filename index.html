@@ -115,6 +115,12 @@
         
         // Function to handle WhatsApp responses
         async function sendWhatsAppResponse(action) {
+            // Debug: Log the action being sent
+            console.log('=== FRONTEND DEBUG ===');
+            console.log('Action parameter received:', action);
+            console.log('Action type:', typeof action);
+            console.log('====================');
+            
             // Get the button that was clicked
             const button = event ? event.target : document.querySelector(`button[onclick*="${action}"]`);
             let originalText = 'Sì';
@@ -128,8 +134,9 @@
                 }
                 
                 // Call Lambda function
-                console.log('Calling API:', `${LAMBDA_API_ENDPOINT}?action=${action}`);
-                const response = await fetch(`${LAMBDA_API_ENDPOINT}?action=${action}`);
+                const apiUrl = `${LAMBDA_API_ENDPOINT}?action=${action}`;
+                console.log('Calling API:', apiUrl);
+                const response = await fetch(apiUrl);
                 
                 console.log('Response status:', response.status);
                 
@@ -139,6 +146,14 @@
                 
                 const data = await response.json();
                 console.log('Full response data:', data);
+                
+                // Debug: Log the message from the response
+                if (data.message) {
+                    console.log('Message from Lambda:', data.message);
+                }
+                if (data.debug && data.debug.action) {
+                    console.log('Lambda processed action:', data.debug.action);
+                }
                 
                 // Parse the response - it might be double-encoded JSON
                 let whatsappUrl = data.whatsappUrl;
