@@ -6,13 +6,17 @@ from botocore.exceptions import ClientError
 def lambda_handler(event, context):
     """
     AWS Lambda function to securely return WhatsApp phone number
-    Handles GitHub Pages requests that may not send headers due to API Gateway configuration
+    Temporarily permissive for debugging header issues
     """
+    
+    # Debug: Log the entire event to see what we're getting
+    print("=== FULL EVENT DEBUG ===")
+    print("Event:", json.dumps(event, indent=2, default=str))
+    print("======================")
     
     # Get headers multiple ways (API Gateway can be inconsistent)
     headers = event.get('headers', {})
     multi_headers = event.get('multiValueHeaders', {})
-    request_context = event.get('requestContext', {})
     
     # Try different header access methods
     origin = (
@@ -38,91 +42,51 @@ def lambda_handler(event, context):
     )
     
     # Also check request context for more info
+    request_context = event.get('requestContext', {})
     source_ip = request_context.get('identity', {}).get('sourceIp', 'unknown')
     
-    print(f"Security Check - Origin: {origin}, Referer: {referer}")
-    print(f"User-Agent: {user_agent[:100]}..." if len(user_agent) > 100 else f"User-Agent: {user_agent}")
+    print(f"Extracted - Origin: {origin}, Referer: {referer}, User-Agent: {user_agent}")
     print(f"Source IP: {source_ip}")
-    print(f"HTTP Method: {event.get('httpMethod')}")
-    print(f"Query Params: {event.get('queryStringParameters')}")
-    print(f"Headers: {headers}")
-    print(f"Headers length: {len(headers)}")
     
-    # For debugging: log the exact conditions we're checking
-    no_origin = not origin
-    no_referer = not referer  
-    no_user_agent = not user_agent
-    empty_headers = len(headers) == 0
-    print(f"Conditions - no_origin: {no_origin}, no_referer: {no_referer}, no_user_agent: {no_user_agent}, empty_headers: {empty_headers}")
-    
-    # GitHub Pages Security Strategy:
-    # Since GitHub Pages + API Gateway strips headers, we need a different approach
+    # TEMPORARY: Be more permissive while debugging
+    # Allow requests that seem to come from legitimate sources
     is_allowed = False
-    allowed_reason = ""
+    is_browser = False
     
-    # Get basic request info
-    query_params = event.get('queryStringParameters') or {}
-    http_method = event.get('httpMethod', '').upper()
-    
-    print(f"Evaluating request - Method: {http_method}, Has query params: {bool(query_params)}")
-    
-    # Check if we have proper headers (ideal case)
+    # Check if we have any valid headers
     if origin and 'fabiofi.github.io' in origin:
         is_allowed = True
-        allowed_reason = f"Valid origin: {origin}"
-        print("✅ Allowed by origin")
-    
-    if not is_allowed and referer and 'fabiofi.github.io' in referer:
+        print("Allowed by origin")
+    elif referer and 'fabiofi.github.io' in referer:
         is_allowed = True
-        allowed_reason = f"Valid referer: {referer}"
-        print("✅ Allowed by referer")
-    
-    # GitHub Pages fallback cases - be very permissive
-    if not is_allowed and not origin and not referer:
-        print("🔍 No origin/referer detected - checking GitHub Pages cases")
-        
-        # Case 1: No headers at all (most common GitHub Pages case)
-        if not user_agent and len(headers) == 0:
-            print("📱 GitHub Pages case: completely empty headers")
-            if http_method in ['GET', 'OPTIONS']:
-                is_allowed = True
-                allowed_reason = f"GitHub Pages (no headers, {http_method})"
-                print("✅ Allowed - GitHub Pages with no headers")
-        
-        # Case 2: Some headers but no origin/referer
-        if not is_allowed and len(headers) >= 0:  # Any request, even with empty headers
-            print("📱 GitHub Pages case: missing origin/referer")
-            if http_method in ['GET', 'OPTIONS']:
-                is_allowed = True
-                allowed_reason = f"GitHub Pages ({http_method}, headers: {len(headers)})"
-                print("✅ Allowed - GitHub Pages missing headers")
-    
-    # If we have user agent, validate it's a real browser
-    if not is_allowed and user_agent and any(browser in user_agent.lower() for browser in [
-        'mozilla', 'chrome', 'safari', 'firefox', 'edge', 'webkit'
-    ]):
-        # Block obvious bots even with user agent
-        if not any(bot in user_agent.lower() for bot in ['bot', 'crawler', 'spider', 'scraper', 'curl', 'wget']):
+        print("Allowed by referer")
+    elif user_agent and any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox', 'edge', 'webkit']):
+        is_browser = True
+        # For now, allow browser requests even without origin/referer
+        # This handles the GitHub Pages header issue
+        is_allowed = True
+        print("Allowed by browser user-agent (GitHub Pages fallback)")
+    else:
+        # Last resort: if headers are completely missing, it might be API Gateway config issue
+        # Check if this looks like a legitimate request
+        if not origin and not referer and not user_agent:
+            print("No headers detected - possible API Gateway issue")
+            # Temporarily allow to test functionality
             is_allowed = True
-            allowed_reason = f"Browser request (User-Agent validated)"
-            print("✅ Allowed by user agent")
+            is_browser = True
+            print("TEMPORARY: Allowing request with no headers for debugging")
     
-    # Last resort: for GitHub Pages, allow all GET/OPTIONS requests
-    if not is_allowed and http_method in ['GET', 'OPTIONS']:
-        print("🚨 Last resort: allowing GET/OPTIONS for GitHub Pages compatibility")
-        is_allowed = True
-        allowed_reason = f"GitHub Pages compatibility ({http_method})"
+    # More lenient browser check
+    is_browser = is_browser or any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox', 'edge', 'webkit']) if user_agent else True
     
-    print(f"Security decision: {allowed_reason if is_allowed else 'BLOCKED - Invalid request'}")
+    print(f"Final decision - Is allowed: {is_allowed}, Is browser: {is_browser}")
     
-    # Set CORS headers - permissive for GitHub Pages
+    # CORS headers - be permissive for now
     response_headers = {
-        'Access-Control-Allow-Origin': '*',  # GitHub Pages needs this due to header issues
+        'Access-Control-Allow-Origin': origin if origin else 'https://fabiofi.github.io',
         'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Credentials': 'false',
-        'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Access-Control-Allow-Credentials': 'false'
     }
     
     # Handle preflight OPTIONS request
@@ -131,28 +95,6 @@ def lambda_handler(event, context):
             'statusCode': 200,
             'headers': response_headers,
             'body': json.dumps('OK')
-        }
-    
-    # Block unauthorized requests (but be permissive for GitHub Pages)
-    if not is_allowed:
-        print(f"BLOCKED REQUEST - Origin: {origin}, Referer: {referer}, User-Agent: {user_agent[:50] if user_agent else 'None'}")
-        
-        # Log additional context for debugging
-        print(f"Request details - Method: {event.get('httpMethod')}, Query: {event.get('queryStringParameters')}")
-        print(f"Headers count: {len(headers)}, Context: {request_context.get('requestId', 'unknown')}")
-        
-        return {
-            'statusCode': 403,
-            'headers': response_headers,
-            'body': json.dumps({
-                'error': 'Access denied. This API is restricted to authorized requests only.',
-                'debug_info': {
-                    'has_origin': origin is not None,
-                    'has_referer': referer is not None,
-                    'has_user_agent': bool(user_agent),
-                    'headers_count': len(headers)
-                }
-            })
         }
     
     try:
@@ -205,8 +147,11 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'whatsappUrl': whatsapp_url,
                 'message': message,
-                'allowed': True,
-                'source': allowed_reason
+                'debug': {
+                    'action': action,
+                    'phone': phone_number,
+                    'encoded_message': encoded_message
+                }
             })
         }
         
