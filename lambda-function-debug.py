@@ -5,18 +5,78 @@ from botocore.exceptions import ClientError
 
 def lambda_handler(event, context):
     """
-    AWS Lambda function - DEBUG VERSION
-    This version logs all headers and allows requests for debugging
+    DEBUG VERSION: Log all headers to understand what GitHub Pages sends
     """
     
-    # Debug: Log everything we receive
-    print("=== DEBUG INFO ===")
-    print("Event:", json.dumps(event, indent=2, default=str))
-    print("Headers received:", json.dumps(event.get('headers', {}), indent=2))
-    print("Request context:", json.dumps(event.get('requestContext', {}), indent=2))
+    # Debug: Log the entire event to see what we're getting
+    print("=== FULL HEADERS DEBUG ===")
+    headers = event.get('headers', {})
+    multi_headers = event.get('multiValueHeaders', {})
+    request_context = event.get('requestContext', {})
     
-    # Get headers (case-insensitive)
-    headers_dict = {k.lower(): v for k, v in event.get('headers', {}).items()}
+    print("Headers:", json.dumps(headers, indent=2))
+    print("Multi Headers:", json.dumps(multi_headers, indent=2))
+    print("Request Context Identity:", json.dumps(request_context.get('identity', {}), indent=2))
+    print("Query Parameters:", json.dumps(event.get('queryStringParameters'), indent=2))
+    print("===========================")
+    
+    # Get headers multiple ways
+    origin = (
+        headers.get('origin') or 
+        headers.get('Origin') or
+        (multi_headers.get('origin', [None])[0] if multi_headers.get('origin') else None) or
+        (multi_headers.get('Origin', [None])[0] if multi_headers.get('Origin') else None)
+    )
+    
+    referer = (
+        headers.get('referer') or 
+        headers.get('Referer') or
+        (multi_headers.get('referer', [None])[0] if multi_headers.get('referer') else None) or
+        (multi_headers.get('Referer', [None])[0] if multi_headers.get('Referer') else None)
+    )
+    
+    user_agent = (
+        headers.get('user-agent') or 
+        headers.get('User-Agent') or
+        (multi_headers.get('user-agent', [None])[0] if multi_headers.get('user-agent') else None) or
+        (multi_headers.get('User-Agent', [None])[0] if multi_headers.get('User-Agent') else None) or
+        ''
+    )
+    
+    print(f"EXTRACTED VALUES:")
+    print(f"Origin: '{origin}'")
+    print(f"Referer: '{referer}'")
+    print(f"User-Agent: '{user_agent}'")
+    
+    # For debugging, allow all requests but log what we got
+    response_headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Credentials': 'false'
+    }
+    
+    # Handle OPTIONS
+    if event.get('httpMethod') == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': response_headers,
+            'body': json.dumps('OK')
+        }
+    
+    # For debugging, return the headers we received
+    return {
+        'statusCode': 200,
+        'headers': response_headers,
+        'body': json.dumps({
+            'debug': True,
+            'received_origin': origin,
+            'received_referer': referer,
+            'received_user_agent': user_agent[:200] if user_agent else None,
+            'all_headers': headers,
+            'message': 'This is debug mode - check CloudWatch logs for full details'
+        })
+    }
     
     origin = headers_dict.get('origin')
     referer = headers_dict.get('referer')

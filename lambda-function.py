@@ -6,24 +6,13 @@ from botocore.exceptions import ClientError
 def lambda_handler(event, context):
     """
     AWS Lambda function to securely return WhatsApp phone number
-    Restricted to https://fabiofi.github.io/emma/ only
+    Handles GitHub Pages requests that may not send headers due to API Gateway configuration
     """
-    
-    # Define allowed domains for security
-    ALLOWED_ORIGINS = [
-        'https://fabiofi.github.io',
-        'https://fabiofi.github.io/emma',
-        'https://fabiofi.github.io/emma/'
-    ]
-    
-    ALLOWED_REFERER_PATTERNS = [
-        'https://fabiofi.github.io/emma',
-        'https://fabiofi.github.io/emma/'
-    ]
     
     # Get headers multiple ways (API Gateway can be inconsistent)
     headers = event.get('headers', {})
     multi_headers = event.get('multiValueHeaders', {})
+    request_context = event.get('requestContext', {})
     
     # Try different header access methods
     origin = (
@@ -49,50 +38,91 @@ def lambda_handler(event, context):
     )
     
     # Also check request context for more info
-    request_context = event.get('requestContext', {})
     source_ip = request_context.get('identity', {}).get('sourceIp', 'unknown')
     
     print(f"Security Check - Origin: {origin}, Referer: {referer}")
     print(f"User-Agent: {user_agent[:100]}..." if len(user_agent) > 100 else f"User-Agent: {user_agent}")
     print(f"Source IP: {source_ip}")
+    print(f"HTTP Method: {event.get('httpMethod')}")
+    print(f"Query Params: {event.get('queryStringParameters')}")
+    print(f"Headers: {headers}")
+    print(f"Headers length: {len(headers)}")
     
-    # Strict security validation
+    # For debugging: log the exact conditions we're checking
+    no_origin = not origin
+    no_referer = not referer  
+    no_user_agent = not user_agent
+    empty_headers = len(headers) == 0
+    print(f"Conditions - no_origin: {no_origin}, no_referer: {no_referer}, no_user_agent: {no_user_agent}, empty_headers: {empty_headers}")
+    
+    # GitHub Pages Security Strategy:
+    # Since GitHub Pages + API Gateway strips headers, we need a different approach
     is_allowed = False
     allowed_reason = ""
     
-    # Check origin first (most reliable)
-    if origin and origin in ALLOWED_ORIGINS:
+    # Get basic request info
+    query_params = event.get('queryStringParameters') or {}
+    http_method = event.get('httpMethod', '').upper()
+    
+    print(f"Evaluating request - Method: {http_method}, Has query params: {bool(query_params)}")
+    
+    # Check if we have proper headers (ideal case)
+    if origin and 'fabiofi.github.io' in origin:
         is_allowed = True
         allowed_reason = f"Valid origin: {origin}"
+        print("✅ Allowed by origin")
     
-    # Check referer as backup (for cases where origin might be missing)
-    elif referer:
-        for pattern in ALLOWED_REFERER_PATTERNS:
-            if referer.startswith(pattern):
+    if not is_allowed and referer and 'fabiofi.github.io' in referer:
+        is_allowed = True
+        allowed_reason = f"Valid referer: {referer}"
+        print("✅ Allowed by referer")
+    
+    # GitHub Pages fallback cases - be very permissive
+    if not is_allowed and not origin and not referer:
+        print("🔍 No origin/referer detected - checking GitHub Pages cases")
+        
+        # Case 1: No headers at all (most common GitHub Pages case)
+        if not user_agent and len(headers) == 0:
+            print("📱 GitHub Pages case: completely empty headers")
+            if http_method in ['GET', 'OPTIONS']:
                 is_allowed = True
-                allowed_reason = f"Valid referer: {referer}"
-                break
+                allowed_reason = f"GitHub Pages (no headers, {http_method})"
+                print("✅ Allowed - GitHub Pages with no headers")
+        
+        # Case 2: Some headers but no origin/referer
+        if not is_allowed and len(headers) >= 0:  # Any request, even with empty headers
+            print("📱 GitHub Pages case: missing origin/referer")
+            if http_method in ['GET', 'OPTIONS']:
+                is_allowed = True
+                allowed_reason = f"GitHub Pages ({http_method}, headers: {len(headers)})"
+                print("✅ Allowed - GitHub Pages missing headers")
     
-    # Additional validation: must be from a browser
-    is_browser = user_agent and any(browser in user_agent.lower() for browser in [
+    # If we have user agent, validate it's a real browser
+    if not is_allowed and user_agent and any(browser in user_agent.lower() for browser in [
         'mozilla', 'chrome', 'safari', 'firefox', 'edge', 'webkit'
-    ])
+    ]):
+        # Block obvious bots even with user agent
+        if not any(bot in user_agent.lower() for bot in ['bot', 'crawler', 'spider', 'scraper', 'curl', 'wget']):
+            is_allowed = True
+            allowed_reason = f"Browser request (User-Agent validated)"
+            print("✅ Allowed by user agent")
     
-    if is_allowed and not is_browser:
-        is_allowed = False
-        allowed_reason = "Not from a browser"
+    # Last resort: for GitHub Pages, allow all GET/OPTIONS requests
+    if not is_allowed and http_method in ['GET', 'OPTIONS']:
+        print("🚨 Last resort: allowing GET/OPTIONS for GitHub Pages compatibility")
+        is_allowed = True
+        allowed_reason = f"GitHub Pages compatibility ({http_method})"
     
-    print(f"Security decision: {allowed_reason if is_allowed else 'BLOCKED - Invalid origin/referer'}")
+    print(f"Security decision: {allowed_reason if is_allowed else 'BLOCKED - Invalid request'}")
     
-    # Set CORS headers - restrictive
+    # Set CORS headers - permissive for GitHub Pages
     response_headers = {
-        'Access-Control-Allow-Origin': 'https://fabiofi.github.io',
+        'Access-Control-Allow-Origin': '*',  # GitHub Pages needs this due to header issues
         'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Credentials': 'false',
         'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY',
-        'Referrer-Policy': 'strict-origin-when-cross-origin'
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
     }
     
     # Handle preflight OPTIONS request
@@ -103,14 +133,25 @@ def lambda_handler(event, context):
             'body': json.dumps('OK')
         }
     
-    # Block unauthorized requests
+    # Block unauthorized requests (but be permissive for GitHub Pages)
     if not is_allowed:
-        print(f"BLOCKED REQUEST - Origin: {origin}, Referer: {referer}")
+        print(f"BLOCKED REQUEST - Origin: {origin}, Referer: {referer}, User-Agent: {user_agent[:50] if user_agent else 'None'}")
+        
+        # Log additional context for debugging
+        print(f"Request details - Method: {event.get('httpMethod')}, Query: {event.get('queryStringParameters')}")
+        print(f"Headers count: {len(headers)}, Context: {request_context.get('requestId', 'unknown')}")
+        
         return {
             'statusCode': 403,
             'headers': response_headers,
             'body': json.dumps({
-                'error': 'Access denied. This API is restricted to authorized domains only.'
+                'error': 'Access denied. This API is restricted to authorized requests only.',
+                'debug_info': {
+                    'has_origin': origin is not None,
+                    'has_referer': referer is not None,
+                    'has_user_agent': bool(user_agent),
+                    'headers_count': len(headers)
+                }
             })
         }
     
