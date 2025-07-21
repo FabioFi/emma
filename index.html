@@ -90,60 +90,97 @@
         
         // Function to handle WhatsApp responses
         async function sendWhatsAppResponse(action) {
+            // Get the button that was clicked
+            const button = event ? event.target : document.querySelector(`button[onclick*="${action}"]`);
+            let originalText = 'Sì';
+            
             try {
                 // Show loading state
-                const button = event.target;
-                const originalText = button.textContent;
-                button.textContent = 'Caricamento...';
-                button.disabled = true;
+                if (button) {
+                    originalText = button.textContent;
+                    button.textContent = 'Caricamento...';
+                    button.disabled = true;
+                }
                 
                 // Call Lambda function
                 console.log('Calling API:', `${LAMBDA_API_ENDPOINT}?action=${action}`);
                 const response = await fetch(`${LAMBDA_API_ENDPOINT}?action=${action}`);
                 
                 console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
                 
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status}`);
                 }
                 
                 const data = await response.json();
-                console.log('Response data:', data);
+                console.log('Full response data:', data);
+                
+                // Parse the response - it might be double-encoded JSON
+                let whatsappUrl = data.whatsappUrl;
+                
+                // Check if the response body is a string that needs parsing
+                if (typeof data === 'string') {
+                    try {
+                        const parsedData = JSON.parse(data);
+                        whatsappUrl = parsedData.whatsappUrl;
+                        console.log('Parsed WhatsApp URL:', whatsappUrl);
+                    } catch (parseError) {
+                        console.log('Failed to parse response as JSON:', parseError);
+                    }
+                }
+                
+                // Additional check for nested body
+                if (!whatsappUrl && data.body) {
+                    try {
+                        const bodyData = JSON.parse(data.body);
+                        whatsappUrl = bodyData.whatsappUrl;
+                        console.log('Found WhatsApp URL in body:', whatsappUrl);
+                    } catch (parseError) {
+                        console.log('Failed to parse body as JSON:', parseError);
+                    }
+                }
+                
+                console.log('Final WhatsApp URL to use:', whatsappUrl);
                 
                 // Check if we got a valid WhatsApp URL
-                if (data.whatsappUrl) {
-                    console.log('Opening WhatsApp URL:', data.whatsappUrl);
+                if (whatsappUrl && whatsappUrl.includes('wa.me')) {
+                    console.log('Opening WhatsApp URL:', whatsappUrl);
                     
                     // Try different methods to open WhatsApp
                     // Method 1: Direct window.open
-                    const newWindow = window.open(data.whatsappUrl, '_blank');
+                    const newWindow = window.open(whatsappUrl, '_blank');
                     
                     // Method 2: If popup blocked, try location.href
-                    if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-                        console.log('Popup blocked, trying direct navigation...');
-                        // Give user choice
-                        if (confirm('Aprire WhatsApp? (Se il popup è bloccato, verrai reindirizzato direttamente)')) {
-                            window.location.href = data.whatsappUrl;
+                    setTimeout(() => {
+                        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                            console.log('Popup blocked, trying direct navigation...');
+                            // Give user choice
+                            if (confirm('Aprire WhatsApp? (Se il popup è bloccato, verrai reindirizzato direttamente)')) {
+                                window.location.href = whatsappUrl;
+                            }
+                        } else {
+                            console.log('WhatsApp opened successfully in new tab');
                         }
-                    } else {
-                        console.log('WhatsApp opened successfully in new tab');
-                    }
+                    }, 1000);
                 } else {
+                    console.error('No valid WhatsApp URL found in response:', data);
                     throw new Error('No WhatsApp URL received from server');
                 }
                 
                 // Reset button
-                button.textContent = originalText;
-                button.disabled = false;
+                if (button) {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
                 
             } catch (error) {
                 console.error('Error details:', error);
                 
                 // Reset button first
-                const button = event.target;
-                button.textContent = originalText;
-                button.disabled = false;
+                if (button) {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
                 
                 // Show user-friendly error
                 alert(`Si è verificato un errore: ${error.message}. Verrai reindirizzato a WhatsApp dove potrai inserire manualmente il numero.`);
