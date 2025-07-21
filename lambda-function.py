@@ -6,13 +6,20 @@ from botocore.exceptions import ClientError
 def lambda_handler(event, context):
     """
     AWS Lambda function to securely return WhatsApp phone number
-    Temporarily permissive for debugging header issues
+    Restricted to https://fabiofi.github.io/emma/ only
     """
     
-    # Debug: Log the entire event to see what we're getting
-    print("=== FULL EVENT DEBUG ===")
-    print("Event:", json.dumps(event, indent=2, default=str))
-    print("======================")
+    # Define allowed domains for security
+    ALLOWED_ORIGINS = [
+        'https://fabiofi.github.io',
+        'https://fabiofi.github.io/emma',
+        'https://fabiofi.github.io/emma/'
+    ]
+    
+    ALLOWED_REFERER_PATTERNS = [
+        'https://fabiofi.github.io/emma',
+        'https://fabiofi.github.io/emma/'
+    ]
     
     # Get headers multiple ways (API Gateway can be inconsistent)
     headers = event.get('headers', {})
@@ -45,48 +52,47 @@ def lambda_handler(event, context):
     request_context = event.get('requestContext', {})
     source_ip = request_context.get('identity', {}).get('sourceIp', 'unknown')
     
-    print(f"Extracted - Origin: {origin}, Referer: {referer}, User-Agent: {user_agent}")
+    print(f"Security Check - Origin: {origin}, Referer: {referer}")
+    print(f"User-Agent: {user_agent[:100]}..." if len(user_agent) > 100 else f"User-Agent: {user_agent}")
     print(f"Source IP: {source_ip}")
     
-    # TEMPORARY: Be more permissive while debugging
-    # Allow requests that seem to come from legitimate sources
+    # Strict security validation
     is_allowed = False
-    is_browser = False
+    allowed_reason = ""
     
-    # Check if we have any valid headers
-    if origin and 'fabiofi.github.io' in origin:
+    # Check origin first (most reliable)
+    if origin and origin in ALLOWED_ORIGINS:
         is_allowed = True
-        print("Allowed by origin")
-    elif referer and 'fabiofi.github.io' in referer:
-        is_allowed = True
-        print("Allowed by referer")
-    elif user_agent and any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox', 'edge', 'webkit']):
-        is_browser = True
-        # For now, allow browser requests even without origin/referer
-        # This handles the GitHub Pages header issue
-        is_allowed = True
-        print("Allowed by browser user-agent (GitHub Pages fallback)")
-    else:
-        # Last resort: if headers are completely missing, it might be API Gateway config issue
-        # Check if this looks like a legitimate request
-        if not origin and not referer and not user_agent:
-            print("No headers detected - possible API Gateway issue")
-            # Temporarily allow to test functionality
-            is_allowed = True
-            is_browser = True
-            print("TEMPORARY: Allowing request with no headers for debugging")
+        allowed_reason = f"Valid origin: {origin}"
     
-    # More lenient browser check
-    is_browser = is_browser or any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox', 'edge', 'webkit']) if user_agent else True
+    # Check referer as backup (for cases where origin might be missing)
+    elif referer:
+        for pattern in ALLOWED_REFERER_PATTERNS:
+            if referer.startswith(pattern):
+                is_allowed = True
+                allowed_reason = f"Valid referer: {referer}"
+                break
     
-    print(f"Final decision - Is allowed: {is_allowed}, Is browser: {is_browser}")
+    # Additional validation: must be from a browser
+    is_browser = user_agent and any(browser in user_agent.lower() for browser in [
+        'mozilla', 'chrome', 'safari', 'firefox', 'edge', 'webkit'
+    ])
     
-    # CORS headers - be permissive for now
+    if is_allowed and not is_browser:
+        is_allowed = False
+        allowed_reason = "Not from a browser"
+    
+    print(f"Security decision: {allowed_reason if is_allowed else 'BLOCKED - Invalid origin/referer'}")
+    
+    # Set CORS headers - restrictive
     response_headers = {
-        'Access-Control-Allow-Origin': origin if origin else 'https://fabiofi.github.io',
+        'Access-Control-Allow-Origin': 'https://fabiofi.github.io',
         'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Credentials': 'false'
+        'Access-Control-Allow-Credentials': 'false',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
     }
     
     # Handle preflight OPTIONS request
@@ -95,6 +101,17 @@ def lambda_handler(event, context):
             'statusCode': 200,
             'headers': response_headers,
             'body': json.dumps('OK')
+        }
+    
+    # Block unauthorized requests
+    if not is_allowed:
+        print(f"BLOCKED REQUEST - Origin: {origin}, Referer: {referer}")
+        return {
+            'statusCode': 403,
+            'headers': response_headers,
+            'body': json.dumps({
+                'error': 'Access denied. This API is restricted to authorized domains only.'
+            })
         }
     
     try:
@@ -147,11 +164,8 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'whatsappUrl': whatsapp_url,
                 'message': message,
-                'debug': {
-                    'action': action,
-                    'phone': phone_number,
-                    'encoded_message': encoded_message
-                }
+                'allowed': True,
+                'source': allowed_reason
             })
         }
         
