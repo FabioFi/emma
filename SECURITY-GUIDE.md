@@ -49,6 +49,41 @@ aws cloudformation create-stack \
   --capabilities CAPABILITY_IAM
 ```
 
+## 🔧 Quick Fix for GitHub Pages
+
+If you're getting 403 errors from your GitHub Pages site, here's the immediate solution:
+
+### Step 1: Update Lambda Function Code
+
+Replace your Lambda function code with the fixed version that handles GitHub Pages properly. The updated code:
+
+1. **Checks headers case-insensitively** (GitHub Pages may send different cases)
+2. **Allows requests without Origin/Referer** if they have a valid browser User-Agent
+3. **Provides debug information** in error responses
+
+### Step 2: Deploy Updated Function
+
+```bash
+# Zip the updated function
+zip lambda-function.zip lambda-function.py
+
+# Update your Lambda function
+aws lambda update-function-code \
+  --function-name emma-whatsapp-handler \
+  --zip-file fileb://lambda-function.zip
+```
+
+### Step 3: Test from GitHub Pages
+
+Visit `https://fabiofi.github.io/emma/` and click the buttons. It should now work!
+
+### Step 4: Check Logs (if still failing)
+
+```bash
+# View CloudWatch logs to see what headers are being sent
+aws logs tail /aws/lambda/emma-whatsapp-handler --follow
+```
+
 ## 🔧 Manual Security Setup
 
 If you prefer manual setup:
@@ -144,7 +179,31 @@ curl -H "Origin: https://fabiofi.github.io" \
 
 ### Common Issues:
 
-**403 Forbidden Errors:**
+**403 Forbidden Errors from GitHub Pages:**
+
+The most common issue is that GitHub Pages doesn't always send the `Origin` header for AJAX requests. Here's how to fix it:
+
+1. **Use the Debug Version**: Deploy `lambda-function-debug.py` temporarily to see what headers are being sent:
+   ```bash
+   # Upload the debug version to see actual headers
+   aws lambda update-function-code \
+     --function-name emma-whatsapp-handler \
+     --zip-file fileb://lambda-debug.zip
+   ```
+
+2. **Check CloudWatch Logs**: Look at the Lambda logs to see what headers GitHub Pages is actually sending.
+
+3. **Quick Fix**: Use the updated `lambda-function.py` which handles GitHub Pages properly by:
+   - Allowing requests with no Origin/Referer if User-Agent looks like a browser
+   - Case-insensitive header checking
+   - Fallback for GitHub Pages AJAX behavior
+
+**Expected Behavior from GitHub Pages:**
+- ✅ May not send `Origin` header for same-domain AJAX requests
+- ✅ May not send `Referer` header in some browsers
+- ✅ Will send a valid browser `User-Agent`
+
+**Other 403 Issues:**
 - Check if request includes proper Origin/Referer headers
 - Verify User-Agent looks like a browser
 - Ensure request comes from GitHub Pages domain
