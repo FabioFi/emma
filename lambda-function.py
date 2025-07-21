@@ -14,6 +14,16 @@ def lambda_handler(event, context):
     print("Event:", json.dumps(event, indent=2, default=str))
     print("======================")
     
+    # Additional debug: Check all possible places where action might be
+    print("=== ADDITIONAL DEBUG ===")
+    print("pathParameters:", event.get('pathParameters'))
+    print("queryStringParameters:", event.get('queryStringParameters'))
+    print("multiValueQueryStringParameters:", event.get('multiValueQueryStringParameters'))
+    print("httpMethod:", event.get('httpMethod'))
+    print("path:", event.get('path'))
+    print("resource:", event.get('resource'))
+    print("========================")
+    
     # Get headers multiple ways (API Gateway can be inconsistent)
     headers = event.get('headers', {})
     multi_headers = event.get('multiValueHeaders', {})
@@ -127,11 +137,23 @@ def lambda_handler(event, context):
         query_params = event.get('queryStringParameters') or {}
         action = query_params.get('action', 'yes') if query_params else 'yes'
         
+        # Fallback: Try to extract from raw query string if query parameters are not working
+        if action == 'yes' and 'action=no' in str(event):
+            print("Detected action=no in raw event, overriding action")
+            action = 'no'
+        
+        # Another fallback: check multiValueQueryStringParameters
+        multi_query_params = event.get('multiValueQueryStringParameters') or {}
+        if action == 'yes' and multi_query_params.get('action'):
+            action = multi_query_params.get('action')[0] if isinstance(multi_query_params.get('action'), list) else multi_query_params.get('action')
+            print(f"Found action in multiValueQueryStringParameters: {action}")
+        
         # Debug: Log the action being processed
         print(f"=== ACTION DEBUG ===")
         print(f"Raw query parameters object: {event.get('queryStringParameters')}")
         print(f"Query parameters type: {type(event.get('queryStringParameters'))}")
         print(f"Query parameters dict: {query_params}")
+        print(f"MultiValue query parameters: {multi_query_params}")
         print(f"Action key exists: {'action' in query_params if query_params else False}")
         print(f"Raw action value: {query_params.get('action') if query_params else 'NO_PARAMS'}")
         print(f"Final extracted action: '{action}'")
