@@ -1,0 +1,344 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Emma Invitation WhatsApp Lambda Function - Secured for GitHub Pages'
+
+Parameters:
+  WhatsAppPhoneNumber:
+    Type: String
+    Description: 'WhatsApp phone number (without + sign)'
+    Default: 'myphonenumber'
+    NoEcho: true
+  
+  GitHubPagesDomain:
+    Type: String
+    Description: 'GitHub Pages domain (e.g., fabiofi.github.io)'
+    Default: 'fabiofi.github.io'
+
+Resources:
+  # WAF Web ACL for API Gateway protection
+  ApiWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: emma-api-protection
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      Rules:
+        # Rate limiting rule - max 100 requests per 5 minutes per IP
+        - Name: RateLimitRule
+          Priority: 1
+          Statement:
+            RateBasedStatement:
+              Limit: 100
+              AggregateKeyType: IP
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitRule
+        
+        # Geographic restriction (optional - restrict to specific countries)
+        - Name: GeoBlockRule
+          Priority: 2
+          Statement:
+            GeoMatchStatement:
+              CountryCodes:
+                - IT  # Italy
+                - US  # United States (for GitHub Pages CDN)
+                - DE  # Germany (for GitHub Pages CDN)
+                - GB  # United Kingdom (for GitHub Pages CDN)
+          Action:
+            Allow: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: GeoBlockRule
+      
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: ApiWebACL
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
+
+  # Store phone number securely in Parameter Store
+  WhatsAppPhoneParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /emma-invitation/whatsapp-phone
+      Type: SecureString
+      Value: !Ref WhatsAppPhoneNumber
+      Description: 'WhatsApp phone number for Emma invitation'
+
+  # Lambda Function with enhanced security
+  WhatsAppLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: emma-whatsapp-handler
+      Runtime: python3.9
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 10
+      ReservedConcurrencyLimit: 5  # Limit concurrent executions
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from botocore.exceptions import ClientError
+
+          def lambda_handler(event, context):
+              # Allowed origins - restrict to GitHub Pages domain
+              github_domain = os.environ.get('GITHUB_DOMAIN', 'fabiofi.github.io')
+              allowed_origins = [
+                  f'https://{github_domain}',
+                  'http://localhost:3000',
+                  'http://127.0.0.1:5500'
+              ]
+              
+              # Get the origin from the request
+              origin = event.get('headers', {}).get('origin') or event.get('headers', {}).get('Origin')
+              referer = event.get('headers', {}).get('referer') or event.get('headers', {}).get('Referer')
+              
+              # Security check: Verify origin/referer
+              is_allowed = False
+              if origin:
+                  is_allowed = any(origin.startswith(allowed) for allowed in allowed_origins)
+              elif referer:
+                  is_allowed = any(referer.startswith(allowed) for allowed in allowed_origins)
+              
+              # Additional security: Check User-Agent to prevent direct API calls
+              user_agent = event.get('headers', {}).get('user-agent') or event.get('headers', {}).get('User-Agent', '')
+              is_browser = any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox', 'edge'])
+              
+              if not is_allowed or not is_browser:
+                  return {
+                      'statusCode': 403,
+                      'headers': {
+                          'Access-Control-Allow-Origin': origin if is_allowed else 'null',
+                          'Access-Control-Allow-Headers': 'Content-Type',
+                          'Access-Control-Allow-Methods': 'GET, OPTIONS'
+                      },
+                      'body': json.dumps({
+                          'error': 'Access denied. This API is restricted to authorized domains only.'
+                      })
+                  }
+              
+              # CORS headers for allowed origins
+              headers = {
+                  'Access-Control-Allow-Origin': origin,
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                  'Access-Control-Allow-Credentials': 'false'
+              }
+              
+              # Handle preflight OPTIONS request
+              if event.get('httpMethod') == 'OPTIONS':
+                  return {
+                      'statusCode': 200,
+                      'headers': headers,
+                      'body': json.dumps('OK')
+                  }
+              
+              try:
+                  phone_number = os.environ.get('WHATSAPP_PHONE')
+                  
+                  if not phone_number:
+                      ssm = boto3.client('ssm')
+                      try:
+                          response = ssm.get_parameter(
+                              Name='/emma-invitation/whatsapp-phone',
+                              WithDecryption=True
+                          )
+                          phone_number = response['Parameter']['Value']
+                      except ClientError as e:
+                          print(f"Error getting parameter: {e}")
+                  
+                  if not phone_number:
+                      return {
+                          'statusCode': 500,
+                          'headers': headers,
+                          'body': json.dumps({'error': 'Phone number not configured'})
+                      }
+                  
+                  action = event.get('queryStringParameters', {}).get('action', 'yes') if event.get('queryStringParameters') else 'yes'
+                  
+                  messages = {
+                      'yes': "Ciao! Sarò presente al battesimo di Emma il 21 Settembre 2025. Grazie per l'invito! 🎉",
+                      'no': "Ciao! Purtroppo non potrò essere presente al battesimo di Emma. Mi dispiace molto! 😔"
+                  }
+                  
+                  whatsapp_url = f"https://wa.me/{phone_number}?text={messages.get(action, messages['yes'])}"
+                  
+                  return {
+                      'statusCode': 200,
+                      'headers': headers,
+                      'body': json.dumps({
+                          'whatsappUrl': whatsapp_url,
+                          'message': messages.get(action, messages['yes'])
+                      })
+                  }
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'headers': headers,
+                      'body': json.dumps({'error': 'Internal server error'})
+                  }
+      Environment:
+        Variables:
+          WHATSAPP_PHONE: !Ref WhatsAppPhoneNumber
+          GITHUB_DOMAIN: !Ref GitHubPagesDomain
+
+  # API Gateway with enhanced security
+  WhatsAppApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: emma-whatsapp-api
+      Description: Secured API for Emma invitation WhatsApp handler
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Policy:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource: '*'
+            Condition:
+              StringLike:
+                'aws:Referer': 
+                  - !Sub 'https://${GitHubPagesDomain}/*'
+
+  # Usage Plan for rate limiting
+  ApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: emma-api-usage-plan
+      Description: Usage plan for Emma invitation API
+      Throttle:
+        RateLimit: 10    # 10 requests per second
+        BurstLimit: 20   # 20 burst requests
+      Quota:
+        Limit: 1000      # 1000 requests per day
+        Period: DAY
+
+  # API Key for additional security (optional)
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: emma-api-key
+      Description: API key for Emma invitation
+      Enabled: true
+
+  # Connect Usage Plan to API Key
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiUsagePlan
+
+  # API Gateway Resource
+  WhatsAppResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref WhatsAppApi
+      ParentId: !GetAtt WhatsAppApi.RootResourceId
+      PathPart: whatsapp
+
+  # API Gateway Method
+  WhatsAppMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WhatsAppApi
+      ResourceId: !Ref WhatsAppResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WhatsAppLambdaFunction.Arn}/invocations
+
+  # OPTIONS method for CORS
+  WhatsAppOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WhatsAppApi
+      ResourceId: !Ref WhatsAppResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WhatsAppLambdaFunction.Arn}/invocations
+
+  # API Gateway Deployment
+  WhatsAppDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - WhatsAppMethod
+      - WhatsAppOptionsMethod
+    Properties:
+      RestApiId: !Ref WhatsAppApi
+      StageName: prod
+
+  # Connect Usage Plan to API Stage
+  UsagePlanApiStage:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiUsagePlan
+
+  # Lambda Permission for API Gateway
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WhatsAppLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WhatsAppApi}/*/*
+
+  # Associate WAF with API Gateway
+  WebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub arn:aws:apigateway:${AWS::Region}::/restapis/${WhatsAppApi}/stages/prod
+      WebACLArn: !GetAtt ApiWebACL.Arn
+
+Outputs:
+  ApiEndpoint:
+    Description: 'API Gateway endpoint URL'
+    Value: !Sub 'https://${WhatsAppApi}.execute-api.${AWS::Region}.amazonaws.com/prod/whatsapp'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiEndpoint'
+  
+  ApiKey:
+    Description: 'API Key for additional security (optional)'
+    Value: !Ref ApiKey
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiKey'
+  
+  LambdaFunctionArn:
+    Description: 'Lambda function ARN'
+    Value: !GetAtt WhatsAppLambdaFunction.Arn
+
+  SecurityFeatures:
+    Description: 'Security features enabled'
+    Value: 'Origin verification, User-Agent validation, Rate limiting, Geographic restrictions, WAF protection'

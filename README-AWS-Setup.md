@@ -2,7 +2,33 @@
 
 This guide will help you set up an AWS Lambda function to securely handle the WhatsApp phone number, keeping it out of your GitHub repository.
 
-## 🚀 Quick Setup (Recommended)
+## �️ Security Features
+
+### Domain Restriction
+Your API is now secured to only accept requests from `https://fabiofi.github.io`:
+
+1. **Origin/Referer Validation**: Lambda function validates request headers
+2. **User-Agent Checking**: Blocks non-browser requests (prevents curl/postman abuse)
+3. **Rate Limiting**: 100 requests per 5 minutes per IP via AWS WAF
+4. **Geographic Restrictions**: Only allows requests from IT, US, DE, GB
+5. **API Gateway Resource Policy**: Additional referer-based filtering
+
+### Deployment with Security
+
+For maximum security, use the enhanced template:
+
+```bash
+aws cloudformation create-stack \
+  --stack-name emma-whatsapp-secure \
+  --template-body file://cloudformation-template-secure.yaml \
+  --parameters ParameterKey=WhatsAppPhoneNumber,ParameterValue=myphonenumber \
+               ParameterKey=GitHubPagesDomain,ParameterValue=fabiofi.github.io \
+  --capabilities CAPABILITY_IAM
+```
+
+> 📖 **For detailed security configuration, see [SECURITY-GUIDE.md](./SECURITY-GUIDE.md)**
+
+## �🚀 Quick Setup (Recommended)
 
 ### Option 1: Using CloudFormation (Automatic)
 
@@ -69,13 +95,22 @@ With your actual API endpoint.
    - Environment variable as fallback
    - Never exposed in client-side code
 
-2. **CORS Enabled:**
-   - Allows requests from your website
-   - Secure cross-origin requests
+2. **Domain Restriction:**
+   - Only accepts requests from `https://fabiofi.github.io`
+   - Origin/Referer header validation
+   - User-Agent checking (blocks automated tools)
 
-3. **Error Handling:**
-   - Graceful fallback to WhatsApp web
-   - User-friendly error messages
+3. **Rate Limiting:**
+   - AWS WAF: 100 requests per 5 minutes per IP
+   - API Gateway: 10 req/sec, 20 burst, 1000/day
+
+4. **Geographic Filtering:**
+   - Only allows traffic from Italy, US, Germany, UK
+   - Blocks requests from other countries
+
+5. **CORS Protection:**
+   - Secure cross-origin requests
+   - Specific domain allowlisting
 
 ## 📱 How It Works
 

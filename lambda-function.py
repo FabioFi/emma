@@ -6,13 +6,50 @@ from botocore.exceptions import ClientError
 def lambda_handler(event, context):
     """
     AWS Lambda function to securely return WhatsApp phone number
+    Restricted to GitHub Pages domain only
     """
     
-    # Enable CORS for web requests
+    # Allowed origins - restrict to your GitHub Pages domain
+    allowed_origins = [
+        'https://fabiofi.github.io',
+        'http://localhost:3000',  # For local development
+        'http://127.0.0.1:5500'   # For VS Code Live Server
+    ]
+    
+    # Get the origin from the request
+    origin = event.get('headers', {}).get('origin') or event.get('headers', {}).get('Origin')
+    referer = event.get('headers', {}).get('referer') or event.get('headers', {}).get('Referer')
+    
+    # Security check: Verify origin/referer
+    is_allowed = False
+    if origin:
+        is_allowed = any(origin.startswith(allowed) for allowed in allowed_origins)
+    elif referer:
+        is_allowed = any(referer.startswith(allowed) for allowed in allowed_origins)
+    
+    # Additional security: Check User-Agent to prevent direct API calls
+    user_agent = event.get('headers', {}).get('user-agent') or event.get('headers', {}).get('User-Agent', '')
+    is_browser = any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox', 'edge'])
+    
+    if not is_allowed or not is_browser:
+        return {
+            'statusCode': 403,
+            'headers': {
+                'Access-Control-Allow-Origin': origin if is_allowed else 'null',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS'
+            },
+            'body': json.dumps({
+                'error': 'Access denied. This API is restricted to authorized domains only.'
+            })
+        }
+    
+    # CORS headers for allowed origins
     headers = {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Credentials': 'false'
     }
     
     # Handle preflight OPTIONS request
