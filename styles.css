@@ -46,6 +46,17 @@ body, html {
     font-style: italic;
     color: #6c534e;
     margin-bottom: 1em;
+    text-align: center;
+    position: relative;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Use SVG path for arch text */
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath id='arch' d='M 50 80 Q 200 20 350 80' fill='none'/%3E%3Ctext font-family='Lora, serif' font-size='20' font-style='italic' fill='%236c534e'%3E%3CtextPath href='%23arch' startOffset='25%25'%3ESanto Battesimo%3C/textPath%3E%3C/text%3E%3C/svg%3E") no-repeat center center;
+    background-size: 100% 100%;
+    color: transparent;
 }
 
 .immagine-arco {
@@ -92,7 +103,7 @@ body, html {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #f8f0f4 0%, #e8d5dd 100%);
+    background: linear-gradient(135deg, #e8d5dd 0%, #d4c2c9 100%);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -309,9 +320,40 @@ body, html {
     color: #c59fcf;
     text-decoration: none;
     transition: color 0.3s ease;
+    position: relative;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(197, 159, 207, 0.1);
 }
 
 .dettagli a:hover {
     color: #b08bb5;
-    text-decoration: underline;
+    background: rgba(197, 159, 207, 0.2);
+    transform: translateY(-1px);
+}
+
+.dettagli a::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 2px;
+    left: 8px;
+    background-color: #c59fcf;
+    transition: width 0.3s ease;
+}
+
+.dettagli a:hover::after {
+    width: calc(100% - 16px);
+}
+
+/* Add icons to links */
+.data-ora a::before {
+    content: '📅 ';
+    margin-right: 4px;
+}
+
+.luogo a::before {
+    content: '📍 ';
+    margin-right: 4px;
 }
