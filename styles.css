@@ -52,11 +52,6 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    
-    /* Use SVG path for arch text */
-    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath id='arch' d='M 50 80 Q 200 20 350 80' fill='none'/%3E%3Ctext font-family='Lora, serif' font-size='20' font-style='italic' fill='%236c534e'%3E%3CtextPath href='%23arch' startOffset='25%25'%3ESanto Battesimo%3C/textPath%3E%3C/text%3E%3C/svg%3E") no-repeat center center;
-    background-size: 100% 100%;
-    color: transparent;
 }
 
 .immagine-arco {
