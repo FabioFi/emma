@@ -124,12 +124,17 @@ def lambda_handler(event, context):
             }
         
         # Extract action from query parameters
-        action = event.get('queryStringParameters', {}).get('action', 'yes') if event.get('queryStringParameters') else 'yes'
+        query_params = event.get('queryStringParameters') or {}
+        action = query_params.get('action', 'yes') if query_params else 'yes'
         
         # Debug: Log the action being processed
         print(f"=== ACTION DEBUG ===")
-        print(f"Query parameters: {event.get('queryStringParameters', {})}")
-        print(f"Extracted action: '{action}'")
+        print(f"Raw query parameters object: {event.get('queryStringParameters')}")
+        print(f"Query parameters type: {type(event.get('queryStringParameters'))}")
+        print(f"Query parameters dict: {query_params}")
+        print(f"Action key exists: {'action' in query_params if query_params else False}")
+        print(f"Raw action value: {query_params.get('action') if query_params else 'NO_PARAMS'}")
+        print(f"Final extracted action: '{action}'")
         print("==================")
         
         # Prepare WhatsApp messages
