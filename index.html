@@ -51,10 +51,13 @@
                 </div>
             </div>
             <div class="nota-finale">A seguire pranzo presso</div>
-            <div class="luogo">
-                <a href="https://maps.google.com/?q=Circolo+NOI+Andrea+Milani,+Colognola+ai+Colli,+Italy" target="_blank">
-                    Circolo NOI Andrea Milani
-                </a>
+            <div class="dettagli">
+                <div class="luogo">
+                    <a href="https://maps.google.com/?q=Circolo+NOI+Andrea+Milani,+Colognola+ai+Colli,+Italy" target="_blank">
+                        Circolo NOI Andrea Milani
+                    </a>
+                </div>
+            </div>
             <div class="parteciperai">
                 <h2>Parteciperai?</h2>
                 <button onclick="sendWhatsAppResponse('yes')">Sì</button>
@@ -86,7 +89,7 @@
                         mainContent.style.opacity = '1';
                     }, 50);
                 }, 500);
-            }, 3000); // Show loading for 3 seconds
+            }, 4500); // Show loading for 4.5 seconds (animation is 4s + 0.5s extra)
         });
         
         // Function to handle WhatsApp responses
