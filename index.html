@@ -10,23 +10,25 @@
 <body>
     <!-- Loading Animation -->
     <div id="loading-screen" class="loading-container">
-        <div class="envelope">
-            <div class="envelope-back"></div>
-            <div class="envelope-front">
-                <div class="envelope-flap"></div>
+        <div class="gift-box" id="giftBox">
+            <div class="box-lid">
+                <div class="lid-top"></div>
+                <div class="bow">
+                    <div class="bow-left"></div>
+                    <div class="bow-right"></div>
+                    <div class="bow-center"></div>
+                </div>
             </div>
-            <div class="letter">
-                <div class="letter-content">
-                    <div class="letter-header">Emma</div>
-                    <div class="letter-lines">
-                        <div class="line"></div>
-                        <div class="line"></div>
-                        <div class="line"></div>
-                    </div>
+            <div class="box-bottom"></div>
+            <div class="invitation-card" id="invitationCard">
+                <div class="card-content">
+                    <div class="card-header">Emma</div>
+                    <div class="card-subtitle">Santo Battesimo</div>
+                    <div class="card-date">21 Settembre 2025</div>
                 </div>
             </div>
         </div>
-        <div class="loading-text">C'è posta per te...</div>
+        <div class="loading-text" id="loadingText">Clicca per aprire l'invito...</div>
     </div>
 
     <!-- Main Content -->
@@ -70,26 +72,40 @@
         // Configuration - Replace with your actual Lambda API endpoint
         const LAMBDA_API_ENDPOINT = 'https://4sl8y10tm8.execute-api.eu-north-1.amazonaws.com/prod/whatsapp';
         
-        // Loading animation
+        // Loading animation with interactive gift box
         window.addEventListener('load', function() {
-            setTimeout(function() {
-                const loadingScreen = document.getElementById('loading-screen');
-                const mainContent = document.getElementById('main-content');
-                
-                loadingScreen.style.opacity = '0';
-                loadingScreen.style.transition = 'opacity 0.5s ease-out';
-                
-                setTimeout(function() {
-                    loadingScreen.style.display = 'none';
-                    mainContent.style.display = 'flex';
-                    mainContent.style.opacity = '0';
-                    mainContent.style.transition = 'opacity 0.5s ease-in';
+            const giftBox = document.getElementById('giftBox');
+            const loadingText = document.getElementById('loadingText');
+            let isOpened = false;
+            
+            giftBox.addEventListener('click', function() {
+                if (!isOpened) {
+                    isOpened = true;
+                    giftBox.classList.add('opened');
+                    loadingText.textContent = 'Preparando l\'invito...';
+                    loadingText.style.opacity = '0.5';
                     
+                    // Wait for box animation, then show main content
                     setTimeout(function() {
-                        mainContent.style.opacity = '1';
-                    }, 50);
-                }, 500);
-            }, 4500); // Show loading for 4.5 seconds (animation is 4s + 0.5s extra)
+                        const loadingScreen = document.getElementById('loading-screen');
+                        const mainContent = document.getElementById('main-content');
+                        
+                        loadingScreen.style.opacity = '0';
+                        loadingScreen.style.transition = 'opacity 0.5s ease-out';
+                        
+                        setTimeout(function() {
+                            loadingScreen.style.display = 'none';
+                            mainContent.style.display = 'flex';
+                            mainContent.style.opacity = '0';
+                            mainContent.style.transition = 'opacity 0.5s ease-in';
+                            
+                            setTimeout(function() {
+                                mainContent.style.opacity = '1';
+                            }, 50);
+                        }, 500);
+                    }, 1500); // Wait for box opening animation
+                }
+            });
         });
         
         // Function to handle WhatsApp responses

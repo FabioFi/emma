@@ -110,7 +110,7 @@ body, html {
     letter-spacing: 0.03em;
 }
 
-/* Loading Animation Styles */
+/* Interactive Gift Box Animation */
 .loading-container {
     position: fixed;
     top: 0;
@@ -125,142 +125,189 @@ body, html {
     z-index: 9999;
 }
 
-.envelope {
+.gift-box {
     position: relative;
-    width: 320px;
-    height: 220px;
+    width: 200px;
+    height: 200px;
     margin-bottom: 30px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
 }
 
-.envelope-back {
+.gift-box:hover {
+    transform: scale(1.05);
+}
+
+.box-bottom {
     position: absolute;
+    bottom: 0;
+    left: 0;
     width: 100%;
-    height: 100%;
-    background: #fff;
-    border: 3px solid #c59fcf;
+    height: 140px;
+    background: linear-gradient(145deg, #c59fcf 0%, #b08bb5 100%);
+    border: 3px solid #a478a8;
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(197, 159, 207, 0.4);
 }
 
-.envelope-front {
+.box-bottom::before {
+    content: '';
     position: absolute;
-    width: 100%;
-    height: 100%;
-    background: #fff;
-    border: 3px solid #c59fcf;
-    border-radius: 12px;
-    z-index: 2;
+    top: 20px;
+    left: 15px;
+    right: 15px;
+    height: 3px;
+    background: #a478a8;
+    border-radius: 2px;
 }
 
-.envelope-flap {
+.box-bottom::after {
+    content: '';
+    position: absolute;
+    top: 40px;
+    left: 15px;
+    right: 15px;
+    height: 3px;
+    background: #a478a8;
+    border-radius: 2px;
+}
+
+.box-lid {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    height: 60%;
-    background: linear-gradient(145deg, #f9f5f7 0%, #f0eaed 100%);
-    border: 3px solid #c59fcf;
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-    z-index: 4;
+    height: 80px;
+    z-index: 2;
     transform-origin: bottom center;
-    animation: openLetterFlap 4s ease-in-out;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lid-top {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(145deg, #d4b8c4 0%, #c59fcf 100%);
+    border: 3px solid #a478a8;
+    border-radius: 12px 12px 8px 8px;
     box-shadow: 0 4px 15px rgba(197, 159, 207, 0.3);
 }
 
-.envelope-flap::before {
-    content: '';
+.bow {
     position: absolute;
-    bottom: -3px;
+    top: 15px;
     left: 50%;
     transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 60px solid transparent;
-    border-right: 60px solid transparent;
-    border-top: 35px solid #f9f5f7;
+    width: 60px;
+    height: 40px;
+}
+
+.bow-left, .bow-right {
+    position: absolute;
+    width: 25px;
+    height: 25px;
+    background: #f4d03f;
+    border-radius: 50% 10px 50% 10px;
+    border: 2px solid #e6b800;
+}
+
+.bow-left {
+    left: 0;
+    transform: rotate(-45deg);
+}
+
+.bow-right {
+    right: 0;
+    transform: rotate(45deg);
+}
+
+.bow-center {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 15px;
+    background: #e6b800;
+    border-radius: 3px;
+    border: 2px solid #d4a500;
+}
+
+.invitation-card {
+    position: absolute;
+    top: 60px;
+    left: 20px;
+    right: 20px;
+    height: 120px;
+    background: linear-gradient(145deg, #fff 0%, #fefefe 100%);
+    border: 2px solid #e5d7de;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transform: translateY(100px) scale(0.8);
+    opacity: 0;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1;
 }
 
-.envelope-flap::after {
-    content: '💌';
-    position: absolute;
-    bottom: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 18px;
-    opacity: 0.8;
-    animation: fadeOutSeal 4s ease-in-out;
-}
-
-@keyframes fadeOutSeal {
-    0% { opacity: 0.8; transform: translateX(-50%) scale(1); }
-    25% { opacity: 0.8; transform: translateX(-50%) scale(1); }
-    65% { opacity: 0.3; transform: translateX(-50%) scale(0.7); }
-    100% { opacity: 0; transform: translateX(-50%) scale(0.3); }
-}
-
-.letter {
-    position: absolute;
-    width: 88%;
-    height: 80%;
-    background: linear-gradient(145deg, #fff 0%, #fefefe 100%);
-    top: 15%;
-    left: 6%;
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-    border: 2px solid #e5d7de;
-    animation: slideOutLetter 4s ease-in-out;
-    opacity: 0;
-    transform: translateY(50px) scale(0.8);
-    z-index: 3;
-}
-
-.letter-content {
-    padding: 20px;
+.card-content {
+    padding: 15px;
+    text-align: center;
     height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
+    justify-content: center;
 }
 
-.letter-header {
+.card-header {
     font-family: 'Great Vibes', cursive;
-    font-size: 2em;
+    font-size: 1.8em;
     color: #c59fcf;
-    text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
 }
 
-.letter-lines {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.card-subtitle {
+    font-family: 'Lora', serif;
+    font-size: 1em;
+    color: #6c534e;
+    font-style: italic;
+    margin-bottom: 5px;
 }
 
-.line {
-    height: 2px;
-    background: #e5d7de;
-    border-radius: 1px;
-    animation: drawLine 2s ease-in-out forwards;
-    transform: scaleX(0);
-    transform-origin: left;
+.card-date {
+    font-family: 'Lora', serif;
+    font-size: 0.9em;
+    color: #8c7a7d;
 }
 
-.line:nth-child(1) {
-    width: 80%;
-    animation-delay: 2s;
+.loading-text {
+    font-family: 'Lora', serif;
+    font-size: 1.2em;
+    color: #6c534e;
+    animation: pulse 1.5s ease-in-out infinite;
+    transition: opacity 0.3s ease;
 }
 
-.line:nth-child(2) {
-    width: 90%;
-    animation-delay: 2.2s;
+/* Opened state */
+.gift-box.opened .box-lid {
+    transform: rotateX(-120deg) translateY(-10px);
 }
 
-.line:nth-child(3) {
-    width: 70%;
-    animation-delay: 2.4s;
+.gift-box.opened .invitation-card {
+    transform: translateY(-20px) scale(1);
+    opacity: 1;
+    transition-delay: 0.3s;
 }
+
+.gift-box.opened {
+    cursor: default;
+}
+
+.gift-box.opened:hover {
+    transform: scale(1);
+}
+
+
+
+
 
 .loading-text {
     font-family: 'Lora', serif;
