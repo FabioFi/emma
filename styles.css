@@ -462,3 +462,117 @@ body, html {
     content: '📍 ';
     margin-right: 4px;
 }
+
+/* Form styling for confirmation form */
+.form-container {
+    background: rgba(245, 235, 240, 0.8);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 2px solid #e5d7de;
+    box-shadow: 0 2px 8px rgba(197, 159, 207, 0.1);
+}
+
+.form-container h3 {
+    color: #6c534e;
+    font-family: 'Lora', serif;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    color: #8c7a7d;
+    font-weight: 600;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e5d7de;
+    border-radius: 8px;
+    font-family: 'Lora', serif;
+    font-size: 0.9em;
+    background: rgba(255, 255, 255, 0.9);
+    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #c59fcf;
+    background: rgba(255, 255, 255, 1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.submit-btn {
+    background: linear-gradient(135deg, #c59fcf, #d4b3dd);
+    color: white;
+    border: none;
+    padding: 14px 30px;
+    border-radius: 25px;
+    font-family: 'Lora', serif;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(197, 159, 207, 0.3);
+    margin-top: 10px;
+    width: 100%;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(197, 159, 207, 0.4);
+    background: linear-gradient(135deg, #b894c2, #c9a7d0);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(197, 159, 207, 0.3);
+}
+
+.required {
+    color: #d4b3dd;
+}
+
+/* Hide form initially */
+#confirmationForm {
+    display: none;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+/* Button spacing adjustments when form is visible */
+.response-buttons.form-visible {
+    margin-bottom: 10px;
+}
+
+.response-buttons.form-visible .whatsapp-btn {
+    margin: 0 5px;
+}

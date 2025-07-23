@@ -70,8 +70,47 @@
             </div>
             <div class="parteciperai">
                 <h2>Parteciperai?</h2>
-                <button onclick="sendWhatsAppResponse('yes')">Sì</button>
-                <button onclick="sendWhatsAppResponse('no')">No</button>
+                <button id="confermaBtn" onclick="showConfirmationForm()">Conferma Partecipazione</button>
+            </div>
+            
+            <!-- Form di conferma (nascosto inizialmente) -->
+            <div id="confirmationForm" class="confirmation-form" style="display: none;">
+                <div class="form-container">
+                    <h3>Conferma la tua partecipazione</h3>
+                    <form id="participationForm">
+                        <div class="form-group">
+                            <label for="fullName">Nome e Cognome *</label>
+                            <input type="text" id="fullName" name="fullName" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="participants">Numero di partecipanti *</label>
+                            <select id="participants" name="participants" required>
+                                <option value="">Seleziona...</option>
+                                <option value="1">1 persona</option>
+                                <option value="2">2 persone</option>
+                                <option value="3">3 persone</option>
+                                <option value="4">4 persone</option>
+                                <option value="5+">5 o più persone</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="intolerances">Intolleranze alimentari</label>
+                            <textarea id="intolerances" name="intolerances" placeholder="Specificare eventuali intolleranze o allergie alimentari..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="notes">Note aggiuntive</label>
+                            <textarea id="notes" name="notes" placeholder="Eventuali messaggi o richieste particolari..."></textarea>
+                        </div>
+                        
+                        <div class="form-buttons">
+                            <button type="submit" class="submit-btn">Invia Conferma</button>
+                            <button type="button" class="cancel-btn" onclick="hideConfirmationForm()">Annulla</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -116,134 +155,86 @@
             });
         });
         
-        // Function to handle WhatsApp responses
-        async function sendWhatsAppResponse(action) {
-            // Debug: Log the action being sent
-            console.log('=== FRONTEND DEBUG ===');
-            console.log('Action parameter received:', action);
-            console.log('Action type:', typeof action);
-            console.log('====================');
+        // Function to show confirmation form
+        function showConfirmationForm() {
+            document.getElementById('confirmationForm').style.display = 'block';
+            document.getElementById('confermaBtn').style.display = 'none';
             
-            // Get the button that was clicked
-            const button = event ? event.target : document.querySelector(`button[onclick*="${action}"]`);
-            let originalText = 'Sì';
-            
-            try {
-                // Show loading state
-                if (button) {
-                    originalText = button.textContent;
-                    button.textContent = 'Caricamento...';
-                    button.disabled = true;
-                }
-                
-                // FINAL WORKAROUND: Use custom header since query params don't work
-                let headers = {};
-                
-                if (action === 'no') {
-                    // Add custom header for 'no' action
-                    headers['X-Action'] = 'no';
-                } else {
-                    headers['X-Action'] = 'yes';
-                }
-                
-                const apiUrl = LAMBDA_API_ENDPOINT;
-                console.log('Calling API:', apiUrl);
-                console.log('With headers:', headers);
-                
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: headers
-                });
-                
-                console.log('Response status:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('Full response data:', data);
-                
-                // Debug: Log the message from the response
-                if (data.message) {
-                    console.log('Message from Lambda:', data.message);
-                }
-                if (data.debug && data.debug.action) {
-                    console.log('Lambda processed action:', data.debug.action);
-                }
-                
-                // Parse the response - it might be double-encoded JSON
-                let whatsappUrl = data.whatsappUrl;
-                
-                // Check if the response body is a string that needs parsing
-                if (typeof data === 'string') {
-                    try {
-                        const parsedData = JSON.parse(data);
-                        whatsappUrl = parsedData.whatsappUrl;
-                        console.log('Parsed WhatsApp URL:', whatsappUrl);
-                    } catch (parseError) {
-                        console.log('Failed to parse response as JSON:', parseError);
-                    }
-                }
-                
-                // Additional check for nested body
-                if (!whatsappUrl && data.body) {
-                    try {
-                        const bodyData = JSON.parse(data.body);
-                        whatsappUrl = bodyData.whatsappUrl;
-                        console.log('Found WhatsApp URL in body:', whatsappUrl);
-                    } catch (parseError) {
-                        console.log('Failed to parse body as JSON:', parseError);
-                    }
-                }
-                
-                console.log('Final WhatsApp URL to use:', whatsappUrl);
-                
-                // Check if we got a valid WhatsApp URL
-                if (whatsappUrl && whatsappUrl.includes('wa.me')) {
-                    console.log('Opening WhatsApp URL:', whatsappUrl);
-                    
-                    // Try different methods to open WhatsApp
-                    // Method 1: Direct window.open
-                    const newWindow = window.open(whatsappUrl, '_blank');
-                    
-                    // Method 2: If popup blocked, try location.href
-                    setTimeout(() => {
-                        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-                            console.log('Popup blocked, trying direct navigation...');
-                            // Give user choice
-                            if (confirm('Aprire WhatsApp? (Se il popup è bloccato, verrai reindirizzato direttamente)')) {
-                                window.location.href = whatsappUrl;
-                            }
-                        } else {
-                            console.log('WhatsApp opened successfully in new tab');
-                        }
-                    }, 1000);
-                } else {
-                    console.error('No valid WhatsApp URL found in response:', data);
-                    throw new Error('No WhatsApp URL received from server');
-                }
-                
-                // Reset button
-                if (button) {
-                    button.textContent = originalText;
-                    button.disabled = false;
-                }
-                
-            } catch (error) {
-                console.error('Error details:', error);
-                
-                // Reset button first
-                if (button) {
-                    button.textContent = originalText;
-                    button.disabled = false;
-                }
-                
-                // Show user-friendly error
-                alert(`Si è verificato un errore: ${error.message}. Verrai reindirizzato a WhatsApp dove potrai inserire manualmente il numero.`);
-                window.open('https://wa.me/', '_blank');
-            }
+            // Smooth scroll to form
+            document.getElementById('confirmationForm').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
         }
+        
+        // Function to hide confirmation form
+        function hideConfirmationForm() {
+            document.getElementById('confirmationForm').style.display = 'none';
+            document.getElementById('confermaBtn').style.display = 'block';
+        }
+        
+        // Handle form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('participationForm');
+            if (form) {
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    // Get form data
+                    const formData = {
+                        fullName: document.getElementById('fullName').value,
+                        participants: document.getElementById('participants').value,
+                        intolerances: document.getElementById('intolerances').value,
+                        notes: document.getElementById('notes').value,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    console.log('Sending form data:', formData);
+                    
+                    // Show loading state
+                    const submitBtn = document.querySelector('.submit-btn');
+                    const originalText = submitBtn.textContent;
+                    submitBtn.textContent = 'Invio in corso...';
+                    submitBtn.disabled = true;
+                    
+                    try {
+                        // Send to Lambda function
+                        const response = await fetch(LAMBDA_API_ENDPOINT, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                action: 'confirmation',
+                                data: formData
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+                        
+                        const result = await response.json();
+                        console.log('Server response:', result);
+                        
+                        // Show success message
+                        alert('Grazie! La tua conferma è stata inviata con successo. Riceverai una conferma via email a breve.');
+                        
+                        // Reset form and hide it
+                        form.reset();
+                        hideConfirmationForm();
+                        
+                    } catch (error) {
+                        console.error('Error sending confirmation:', error);
+                        alert('Si è verificato un errore durante l\'invio. Per favore riprova o contattaci direttamente.');
+                    } finally {
+                        // Reset button
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

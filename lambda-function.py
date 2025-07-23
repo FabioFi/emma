@@ -3,11 +3,11 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 import urllib.parse
+from datetime import datetime
 
 def lambda_handler(event, context):
     """
-    AWS Lambda function to securely return WhatsApp phone number
-    Simplified version focused on parameter extraction
+    AWS Lambda function to handle Emma baptism invitation confirmations
     """
     
     # Debug: Log the entire event to see what we're getting
@@ -15,11 +15,11 @@ def lambda_handler(event, context):
     print("Event:", json.dumps(event, indent=2, default=str))
     print("======================")
     
-    # CORS headers - be permissive for now
+    # CORS headers - support for POST requests
     response_headers = {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent, X-Action',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Credentials': 'false'
     }
     
@@ -32,113 +32,17 @@ def lambda_handler(event, context):
         }
     
     try:
-        # Get phone number from environment variable
-        phone_number = os.environ.get('WHATSAPP_PHONE')
-        
-        if not phone_number:
-            # Try Systems Manager Parameter Store
-            ssm = boto3.client('ssm')
-            try:
-                response = ssm.get_parameter(
-                    Name='/emma-invitation/whatsapp-phone',
-                    WithDecryption=True
-                )
-                phone_number = response['Parameter']['Value']
-            except ClientError as e:
-                print(f"Error getting parameter: {e}")
-        
-        if not phone_number:
-            return {
-                'statusCode': 500,
-                'headers': response_headers,
-                'body': json.dumps({
-                    'error': 'Phone number not configured'
-                })
-            }
-        
-        # FINAL WORKAROUND: Use custom header since query parameters don't work
-        print("=== HEADER-BASED ACTION EXTRACTION ===")
-        
-        # Initialize action
-        action = 'yes'  # default
-        
         # Check HTTP method
         http_method = event.get('httpMethod', 'GET')
         print(f"HTTP Method: {http_method}")
         
-        # Method 1: Check custom header (most reliable solution)
-        headers = event.get('headers', {})
-        print(f"All headers: {list(headers.keys())}")
-        
-        # Check for our custom header in different formats
-        x_action = (
-            headers.get('X-Action') or 
-            headers.get('x-action') or 
-            headers.get('X-action') or
-            headers.get('x-Action')
-        )
-        
-        if x_action:
-            print(f"Found X-Action header: '{x_action}'")
-            if x_action.lower() in ['yes', 'no']:
-                action = x_action.lower()
-                print(f"Action set from header: '{action}'")
-        
-        # Method 2: Fallback to query parameters if available
-        if action == 'yes':  # Still default, try query params as fallback
-            query_params = event.get('queryStringParameters')
-            print(f"queryStringParameters: {query_params}")
+        if http_method == 'POST':
+            # Handle form submission
+            return handle_confirmation_form(event, response_headers)
+        else:
+            # Handle legacy WhatsApp functionality (if needed)
+            return handle_legacy_whatsapp(event, response_headers)
             
-            if query_params and 'action' in query_params:
-                raw_action = query_params['action']
-                print(f"Found action in queryStringParameters: '{raw_action}'")
-                if raw_action in ['yes', 'no']:
-                    action = raw_action
-        
-        # Method 3: Last resort - check if the raw event contains any hint
-        if action == 'yes':  # Still haven't found 'no'
-            event_str = json.dumps(event, default=str).lower()
-            if '"no"' in event_str and 'action' in event_str:
-                print("Last resort: found 'no' in event, assuming action=no")
-                action = 'no'
-        
-        print(f"Final action determined: '{action}'")
-        print("=====================================")
-        
-        # Prepare WhatsApp messages
-        messages = {
-            'yes': "Ciao! Sarò presente al battesimo di Emma il 21 Settembre 2025. Grazie per l'invito!",
-            'no': "Ciao! Purtroppo non potrò essere presente al battesimo di Emma. Mi dispiace molto!"
-        }
-        
-        message = messages.get(action, messages['yes'])
-        print(f"Selected message: {message}")
-        
-        encoded_message = urllib.parse.quote(message, safe='')
-        whatsapp_url = f"https://wa.me/{phone_number}?text={encoded_message}"
-        
-        print(f"Generated WhatsApp URL: {whatsapp_url}")
-        
-        # Create event string for debug
-        event_str = json.dumps(event, default=str)
-        
-        return {
-            'statusCode': 200,
-            'headers': response_headers,
-            'body': json.dumps({
-                'whatsappUrl': whatsapp_url,
-                'message': message,
-                'debug': {
-                    'action': action,
-                    'httpMethod': http_method,
-                    'queryParams': event.get('queryStringParameters'),
-                    'hasBody': bool(event.get('body')),
-                    'extractedFromEvent': f"action={action}",
-                    'eventContainsActionNo': ('action=no' in event_str or "'action': 'no'" in event_str or '"action": "no"' in event_str)
-                }
-            })
-        }
-        
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback
@@ -151,3 +55,157 @@ def lambda_handler(event, context):
                 'details': str(e)
             })
         }
+
+def handle_confirmation_form(event, response_headers):
+    """Handle the confirmation form submission and send email"""
+    
+    # Parse the request body
+    body = event.get('body', '{}')
+    print(f"POST body: {body}")
+    
+    try:
+        if isinstance(body, str):
+            body_data = json.loads(body)
+        else:
+            body_data = body
+    except json.JSONDecodeError as e:
+        print(f"Error parsing POST body: {e}")
+        return {
+            'statusCode': 400,
+            'headers': response_headers,
+            'body': json.dumps({
+                'error': 'Invalid JSON in request body'
+            })
+        }
+    
+    # Extract form data
+    action = body_data.get('action')
+    form_data = body_data.get('data', {})
+    
+    print(f"Action: {action}")
+    print(f"Form data: {form_data}")
+    
+    if action != 'confirmation':
+        return {
+            'statusCode': 400,
+            'headers': response_headers,
+            'body': json.dumps({
+                'error': 'Invalid action'
+            })
+        }
+    
+    # Validate required fields
+    required_fields = ['fullName', 'participants']
+    for field in required_fields:
+        if not form_data.get(field):
+            return {
+                'statusCode': 400,
+                'headers': response_headers,
+                'body': json.dumps({
+                    'error': f'Missing required field: {field}'
+                })
+            }
+    
+    # Send email confirmation
+    email_sent = send_confirmation_email(form_data)
+    
+    if email_sent:
+        return {
+            'statusCode': 200,
+            'headers': response_headers,
+            'body': json.dumps({
+                'success': True,
+                'message': 'Confirmation received and email sent successfully'
+            })
+        }
+    else:
+        return {
+            'statusCode': 500,
+            'headers': response_headers,
+            'body': json.dumps({
+                'error': 'Failed to send confirmation email'
+            })
+        }
+
+def send_confirmation_email(form_data):
+    """Send confirmation email using AWS SES"""
+    
+    try:
+        # Get email from environment variable or Systems Manager
+        recipient_email = os.environ.get('RECIPIENT_EMAIL')
+        
+        if not recipient_email:
+            # Try Systems Manager Parameter Store
+            ssm = boto3.client('ssm')
+            try:
+                response = ssm.get_parameter(
+                    Name='/emma-invitation/recipient-email',
+                    WithDecryption=True
+                )
+                recipient_email = response['Parameter']['Value']
+            except ClientError as e:
+                print(f"Error getting recipient email: {e}")
+                return False
+        
+        if not recipient_email:
+            print("No recipient email configured")
+            return False
+        
+        # Create SES client
+        ses = boto3.client('ses', region_name='eu-north-1')  # or your preferred region
+        
+        # Format email content
+        subject = f"Conferma Partecipazione Battesimo Emma - {form_data.get('fullName', 'Unknown')}"
+        
+        # Create email body
+        email_body = f"""
+Nuova conferma di partecipazione per il battesimo di Emma:
+
+Nome e Cognome: {form_data.get('fullName', 'N/A')}
+Numero di partecipanti: {form_data.get('participants', 'N/A')}
+Intolleranze alimentari: {form_data.get('intolerances', 'Nessuna specificata')}
+Note aggiuntive: {form_data.get('notes', 'Nessuna nota')}
+
+Data conferma: {form_data.get('timestamp', 'N/A')}
+
+---
+Messaggio automatico dal sistema di conferma partecipazioni
+        """.strip()
+        
+        # Send email
+        response = ses.send_email(
+            Source=recipient_email,  # Sender (must be verified in SES)
+            Destination={
+                'ToAddresses': [recipient_email]
+            },
+            Message={
+                'Subject': {
+                    'Data': subject,
+                    'Charset': 'UTF-8'
+                },
+                'Body': {
+                    'Text': {
+                        'Data': email_body,
+                        'Charset': 'UTF-8'
+                    }
+                }
+            }
+        )
+        
+        print(f"Email sent successfully. MessageId: {response['MessageId']}")
+        return True
+        
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+def handle_legacy_whatsapp(event, response_headers):
+    """Handle legacy WhatsApp functionality (placeholder)"""
+    
+    return {
+        'statusCode': 200,
+        'headers': response_headers,
+        'body': json.dumps({
+            'message': 'Legacy WhatsApp functionality - please use the new confirmation form'
+        })
+    }
