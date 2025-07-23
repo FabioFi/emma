@@ -136,20 +136,24 @@
                     button.disabled = true;
                 }
                 
-                // WORKAROUND: Use path parameters instead of query parameters
-                let apiUrl;
+                // FINAL WORKAROUND: Use custom header since query params don't work
+                let headers = {};
                 
                 if (action === 'no') {
-                    // For 'no' action, append /no to the path
-                    apiUrl = `${LAMBDA_API_ENDPOINT}/no`;
+                    // Add custom header for 'no' action
+                    headers['X-Action'] = 'no';
                 } else {
-                    // For 'yes' action, append /yes to the path
-                    apiUrl = `${LAMBDA_API_ENDPOINT}/yes`;
+                    headers['X-Action'] = 'yes';
                 }
                 
+                const apiUrl = LAMBDA_API_ENDPOINT;
                 console.log('Calling API:', apiUrl);
+                console.log('With headers:', headers);
                 
-                const response = await fetch(apiUrl);
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: headers
+                });
                 
                 console.log('Response status:', response.status);
                 

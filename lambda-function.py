@@ -18,7 +18,7 @@ def lambda_handler(event, context):
     # CORS headers - be permissive for now
     response_headers = {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
+        'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent, X-Action',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Credentials': 'false'
     }
@@ -56,8 +56,8 @@ def lambda_handler(event, context):
                 })
             }
         
-        # WORKAROUND: Use path parameters since query parameters don't work
-        print("=== PATH-BASED ACTION EXTRACTION ===")
+        # FINAL WORKAROUND: Use custom header since query parameters don't work
+        print("=== HEADER-BASED ACTION EXTRACTION ===")
         
         # Initialize action
         action = 'yes'  # default
@@ -66,35 +66,26 @@ def lambda_handler(event, context):
         http_method = event.get('httpMethod', 'GET')
         print(f"HTTP Method: {http_method}")
         
-        # Method 1: Check path parameters (most reliable)
-        path_params = event.get('pathParameters')
-        print(f"pathParameters: {path_params}")
+        # Method 1: Check custom header (most reliable solution)
+        headers = event.get('headers', {})
+        print(f"All headers: {list(headers.keys())}")
         
-        if path_params and 'proxy' in path_params:
-            proxy_path = path_params['proxy']
-            print(f"Proxy path: '{proxy_path}'")
-            if proxy_path == 'no':
-                action = 'no'
-                print("Found 'no' in proxy path")
-            elif proxy_path == 'yes':
-                action = 'yes'
-                print("Found 'yes' in proxy path")
+        # Check for our custom header in different formats
+        x_action = (
+            headers.get('X-Action') or 
+            headers.get('x-action') or 
+            headers.get('X-action') or
+            headers.get('x-Action')
+        )
         
-        # Method 2: Check the request context path
-        request_context = event.get('requestContext', {})
-        if request_context:
-            path = request_context.get('path', '')
-            print(f"Request path: '{path}'")
-            
-            if path.endswith('/no'):
-                action = 'no'
-                print("Path ends with '/no'")
-            elif path.endswith('/yes'):
-                action = 'yes'
-                print("Path ends with '/yes'")
+        if x_action:
+            print(f"Found X-Action header: '{x_action}'")
+            if x_action.lower() in ['yes', 'no']:
+                action = x_action.lower()
+                print(f"Action set from header: '{action}'")
         
-        # Method 3: Fallback to query parameters if available
-        if action == 'yes':  # Still default, try query params
+        # Method 2: Fallback to query parameters if available
+        if action == 'yes':  # Still default, try query params as fallback
             query_params = event.get('queryStringParameters')
             print(f"queryStringParameters: {query_params}")
             
@@ -103,6 +94,13 @@ def lambda_handler(event, context):
                 print(f"Found action in queryStringParameters: '{raw_action}'")
                 if raw_action in ['yes', 'no']:
                     action = raw_action
+        
+        # Method 3: Last resort - check if the raw event contains any hint
+        if action == 'yes':  # Still haven't found 'no'
+            event_str = json.dumps(event, default=str).lower()
+            if '"no"' in event_str and 'action' in event_str:
+                print("Last resort: found 'no' in event, assuming action=no")
+                action = 'no'
         
         print(f"Final action determined: '{action}'")
         print("=====================================")
