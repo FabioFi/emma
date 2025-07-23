@@ -19,7 +19,7 @@ def lambda_handler(event, context):
     response_headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Credentials': 'false'
     }
     
@@ -56,9 +56,8 @@ def lambda_handler(event, context):
                 })
             }
         
-        # WORKAROUND: Since query parameters are not working with API Gateway,
-        # use POST body for 'no' action and query params for 'yes' action
-        print("=== WORKAROUND ACTION EXTRACTION ===")
+        # WORKAROUND: Use path parameters since query parameters don't work
+        print("=== PATH-BASED ACTION EXTRACTION ===")
         
         # Initialize action
         action = 'yes'  # default
@@ -67,26 +66,35 @@ def lambda_handler(event, context):
         http_method = event.get('httpMethod', 'GET')
         print(f"HTTP Method: {http_method}")
         
-        if http_method == 'POST':
-            # For POST requests, check the body for action
-            body = event.get('body', '{}')
-            print(f"POST body: {body}")
-            
-            try:
-                if body:
-                    if isinstance(body, str):
-                        body_data = json.loads(body)
-                    else:
-                        body_data = body
-                    
-                    if 'action' in body_data:
-                        action = body_data['action']
-                        print(f"Found action in POST body: '{action}'")
-            except json.JSONDecodeError as e:
-                print(f"Error parsing POST body: {e}")
+        # Method 1: Check path parameters (most reliable)
+        path_params = event.get('pathParameters')
+        print(f"pathParameters: {path_params}")
         
-        else:
-            # For GET requests, try query parameters
+        if path_params and 'proxy' in path_params:
+            proxy_path = path_params['proxy']
+            print(f"Proxy path: '{proxy_path}'")
+            if proxy_path == 'no':
+                action = 'no'
+                print("Found 'no' in proxy path")
+            elif proxy_path == 'yes':
+                action = 'yes'
+                print("Found 'yes' in proxy path")
+        
+        # Method 2: Check the request context path
+        request_context = event.get('requestContext', {})
+        if request_context:
+            path = request_context.get('path', '')
+            print(f"Request path: '{path}'")
+            
+            if path.endswith('/no'):
+                action = 'no'
+                print("Path ends with '/no'")
+            elif path.endswith('/yes'):
+                action = 'yes'
+                print("Path ends with '/yes'")
+        
+        # Method 3: Fallback to query parameters if available
+        if action == 'yes':  # Still default, try query params
             query_params = event.get('queryStringParameters')
             print(f"queryStringParameters: {query_params}")
             

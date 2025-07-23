@@ -136,32 +136,20 @@
                     button.disabled = true;
                 }
                 
-                // WORKAROUND: Use different approach for 'no' action
+                // WORKAROUND: Use path parameters instead of query parameters
                 let apiUrl;
-                let fetchOptions = {};
                 
                 if (action === 'no') {
-                    // For 'no' action, use POST with body to bypass query parameter issues
-                    apiUrl = LAMBDA_API_ENDPOINT;
-                    fetchOptions = {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ action: 'no' })
-                    };
+                    // For 'no' action, append /no to the path
+                    apiUrl = `${LAMBDA_API_ENDPOINT}/no`;
                 } else {
-                    // For 'yes' action, use GET (which seems to work)
-                    apiUrl = `${LAMBDA_API_ENDPOINT}?action=yes`;
-                    fetchOptions = {
-                        method: 'GET'
-                    };
+                    // For 'yes' action, append /yes to the path
+                    apiUrl = `${LAMBDA_API_ENDPOINT}/yes`;
                 }
                 
                 console.log('Calling API:', apiUrl);
-                console.log('Fetch options:', fetchOptions);
                 
-                const response = await fetch(apiUrl, fetchOptions);
+                const response = await fetch(apiUrl);
                 
                 console.log('Response status:', response.status);
                 
