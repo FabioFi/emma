@@ -133,31 +133,78 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Extract action from query parameters
-        query_params = event.get('queryStringParameters') or {}
-        action = query_params.get('action', 'yes') if query_params else 'yes'
+        # Extract action from query parameters - with manual parsing fallback
+        query_params = event.get('queryStringParameters')
+        print(f"Raw queryStringParameters: {query_params}")
+        print(f"queryStringParameters type: {type(query_params)}")
         
-        # Fallback: Try to extract from raw query string if query parameters are not working
-        if action == 'yes' and 'action=no' in str(event):
-            print("Detected action=no in raw event, overriding action")
+        # Initialize action to default
+        action = 'yes'
+        
+        # Method 1: Standard query parameters
+        if query_params and isinstance(query_params, dict):
+            action = query_params.get('action', 'yes')
+            print(f"Method 1 - Extracted action from queryStringParameters: '{action}'")
+        
+        # Method 2: Try to extract from raw query string 
+        raw_query_string = event.get('rawQueryString', '')
+        print(f"Method 2 - Raw query string: '{raw_query_string}'")
+        if raw_query_string:
+            if 'action=no' in raw_query_string:
+                print("Method 2 - Detected action=no in rawQueryString, overriding action")
+                action = 'no'
+            elif 'action=yes' in raw_query_string:
+                print("Method 2 - Detected action=yes in rawQueryString")
+                action = 'yes'
+        
+        # Method 3: Parse from request context resource path if available
+        request_context = event.get('requestContext', {})
+        resource_path = request_context.get('resourcePath', '')
+        request_path = request_context.get('path', '')
+        print(f"Method 3 - Resource path: '{resource_path}', Request path: '{request_path}'")
+        
+        # Method 4: Manual parsing of query string from various sources
+        # Check if there's a query string in the event somewhere
+        full_event_str = json.dumps(event, default=str)
+        if 'action=no' in full_event_str and action != 'no':
+            print("Method 4 - Found action=no in full event JSON, overriding")
             action = 'no'
         
-        # Another fallback: check multiValueQueryStringParameters
+        # Method 5: Try multiValueQueryStringParameters
         multi_query_params = event.get('multiValueQueryStringParameters') or {}
-        if action == 'yes' and multi_query_params.get('action'):
-            action = multi_query_params.get('action')[0] if isinstance(multi_query_params.get('action'), list) else multi_query_params.get('action')
-            print(f"Found action in multiValueQueryStringParameters: {action}")
+        if multi_query_params.get('action'):
+            extracted_action = multi_query_params.get('action')
+            if isinstance(extracted_action, list) and len(extracted_action) > 0:
+                extracted_action = extracted_action[0]
+            print(f"Method 5 - Found action in multiValueQueryStringParameters: {extracted_action}")
+            action = extracted_action
+        
+        # Method 6: Parse query string manually if we can find it
+        # Look for patterns like ?action=no or &action=no in the event
+        import re
+        action_pattern = r'[?&]action=([^&\s"]+)'
+        match = re.search(action_pattern, full_event_str)
+        if match:
+            manual_action = match.group(1)
+            print(f"Method 6 - Manual regex extraction found action: '{manual_action}'")
+            if manual_action in ['yes', 'no']:
+                action = manual_action
         
         # Debug: Log the action being processed
         print(f"=== ACTION DEBUG ===")
         print(f"Raw query parameters object: {event.get('queryStringParameters')}")
         print(f"Query parameters type: {type(event.get('queryStringParameters'))}")
-        print(f"Query parameters dict: {query_params}")
         print(f"MultiValue query parameters: {multi_query_params}")
-        print(f"Action key exists: {'action' in query_params if query_params else False}")
-        print(f"Raw action value: {query_params.get('action') if query_params else 'NO_PARAMS'}")
+        print(f"Raw query string: {event.get('rawQueryString', 'NOT_FOUND')}")
+        print(f"Action key exists in query_params: {'action' in (query_params or {})}")
+        print(f"Raw action value from query_params: {(query_params or {}).get('action', 'NO_ACTION_KEY')}")
         print(f"Final extracted action: '{action}'")
         print("==================")
+        
+        # Ensure action is valid
+        if action not in ['yes', 'no']:
+            print(f"Invalid action '{action}', defaulting to 'yes'")
+            action = 'yes'
         
         # Prepare WhatsApp messages
         messages = {
