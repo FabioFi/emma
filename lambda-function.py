@@ -19,7 +19,7 @@ def lambda_handler(event, context):
     response_headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Credentials': 'false'
     }
     
@@ -56,46 +56,45 @@ def lambda_handler(event, context):
                 })
             }
         
-        # SIMPLIFIED ACTION EXTRACTION
-        print("=== SIMPLIFIED ACTION EXTRACTION ===")
+        # WORKAROUND: Since query parameters are not working with API Gateway,
+        # use POST body for 'no' action and query params for 'yes' action
+        print("=== WORKAROUND ACTION EXTRACTION ===")
         
         # Initialize action
         action = 'yes'  # default
         
-        # Method 1: Direct queryStringParameters check
-        query_params = event.get('queryStringParameters')
-        print(f"queryStringParameters: {query_params}")
+        # Check HTTP method
+        http_method = event.get('httpMethod', 'GET')
+        print(f"HTTP Method: {http_method}")
         
-        if query_params:
-            if 'action' in query_params:
+        if http_method == 'POST':
+            # For POST requests, check the body for action
+            body = event.get('body', '{}')
+            print(f"POST body: {body}")
+            
+            try:
+                if body:
+                    if isinstance(body, str):
+                        body_data = json.loads(body)
+                    else:
+                        body_data = body
+                    
+                    if 'action' in body_data:
+                        action = body_data['action']
+                        print(f"Found action in POST body: '{action}'")
+            except json.JSONDecodeError as e:
+                print(f"Error parsing POST body: {e}")
+        
+        else:
+            # For GET requests, try query parameters
+            query_params = event.get('queryStringParameters')
+            print(f"queryStringParameters: {query_params}")
+            
+            if query_params and 'action' in query_params:
                 raw_action = query_params['action']
                 print(f"Found action in queryStringParameters: '{raw_action}'")
-                if raw_action == 'no':
-                    action = 'no'
-                elif raw_action == 'yes':
-                    action = 'yes'
-        
-        # Method 2: Extract from the entire event as string (most reliable)
-        event_str = str(event)
-        print(f"Searching in event string for action parameter...")
-        
-        if "'action': 'no'" in event_str:
-            print("Found 'action': 'no' in event string")
-            action = 'no'
-        elif '"action": "no"' in event_str:
-            print('Found "action": "no" in event string')
-            action = 'no'
-        elif 'action=no' in event_str:
-            print("Found action=no in event string")
-            action = 'no'
-        
-        # Method 3: Try path parameters if it's configured that way
-        path_params = event.get('pathParameters')
-        if path_params and 'action' in path_params:
-            path_action = path_params['action']
-            print(f"Found action in pathParameters: '{path_action}'")
-            if path_action in ['yes', 'no']:
-                action = path_action
+                if raw_action in ['yes', 'no']:
+                    action = raw_action
         
         print(f"Final action determined: '{action}'")
         print("=====================================")
@@ -114,6 +113,9 @@ def lambda_handler(event, context):
         
         print(f"Generated WhatsApp URL: {whatsapp_url}")
         
+        # Create event string for debug
+        event_str = json.dumps(event, default=str)
+        
         return {
             'statusCode': 200,
             'headers': response_headers,
@@ -122,7 +124,9 @@ def lambda_handler(event, context):
                 'message': message,
                 'debug': {
                     'action': action,
-                    'queryParams': query_params,
+                    'httpMethod': http_method,
+                    'queryParams': event.get('queryStringParameters'),
+                    'hasBody': bool(event.get('body')),
                     'extractedFromEvent': f"action={action}",
                     'eventContainsActionNo': ('action=no' in event_str or "'action': 'no'" in event_str or '"action": "no"' in event_str)
                 }

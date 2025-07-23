@@ -136,10 +136,32 @@
                     button.disabled = true;
                 }
                 
-                // Call Lambda function
-                const apiUrl = `${LAMBDA_API_ENDPOINT}?action=${action}`;
+                // WORKAROUND: Use different approach for 'no' action
+                let apiUrl;
+                let fetchOptions = {};
+                
+                if (action === 'no') {
+                    // For 'no' action, use POST with body to bypass query parameter issues
+                    apiUrl = LAMBDA_API_ENDPOINT;
+                    fetchOptions = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ action: 'no' })
+                    };
+                } else {
+                    // For 'yes' action, use GET (which seems to work)
+                    apiUrl = `${LAMBDA_API_ENDPOINT}?action=yes`;
+                    fetchOptions = {
+                        method: 'GET'
+                    };
+                }
+                
                 console.log('Calling API:', apiUrl);
-                const response = await fetch(apiUrl);
+                console.log('Fetch options:', fetchOptions);
+                
+                const response = await fetch(apiUrl, fetchOptions);
                 
                 console.log('Response status:', response.status);
                 
