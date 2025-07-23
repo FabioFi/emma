@@ -17,10 +17,11 @@ def lambda_handler(event, context):
     
     # CORS headers - support for POST requests
     response_headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent',
+        'Access-Control-Allow-Origin': 'https://fabiofi.github.io',
+        'Access-Control-Allow-Headers': 'Content-Type, Origin, Referer, User-Agent, Accept',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Credentials': 'false'
+        'Access-Control-Allow-Credentials': 'false',
+        'Content-Type': 'application/json'
     }
     
     # Handle preflight OPTIONS request
