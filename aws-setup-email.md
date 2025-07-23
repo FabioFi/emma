@@ -37,7 +37,16 @@ Your Lambda function needs permission to:
 1. Read from Systems Manager Parameter Store
 2. Send emails via SES
 
-### Update the Lambda execution role:
+### Step 1: Get your Lambda function's role name
+```bash
+# Replace 'emma-invitation-function' with your actual Lambda function name
+aws lambda get-function --function-name emma-whatsapp --query 'Configuration.Role' --output text
+```
+
+This will return something like: `arn:aws:iam::858880002188:role/service-role/emma-whatsapp-role-jedrjryz`
+
+### Step 2: Create the policy document
+Create a file called `lambda-policy.json`:
 
 ```json
 {
@@ -57,7 +66,7 @@ Your Lambda function needs permission to:
             "Action": [
                 "ssm:GetParameter"
             ],
-            "Resource": "arn:aws:ssm:eu-north-1:*:parameter/emma-invitation/*"
+            "Resource": "arn:aws:iam::858880002188:role/service-role/emma-whatsapp-role-jedrjryz"
         },
         {
             "Effect": "Allow",
@@ -69,6 +78,37 @@ Your Lambda function needs permission to:
         }
     ]
 }
+```
+
+### Step 3: Create and attach the policy via AWS CLI
+
+```bash
+# Create the policy
+aws iam create-policy \
+    --policy-name EmmaInvitationLambdaPolicy \
+    --policy-document file://lambda-policy.json \
+    --description "Policy for Emma invitation Lambda function"
+
+# Get the policy ARN (replace ACCOUNT_ID with your actual account ID)
+POLICY_ARN="arn:aws:iam::ACCOUNT_ID:policy/EmmaInvitationLambdaPolicy"
+
+# Attach the policy to your Lambda role (replace ROLE_NAME with actual role name)
+aws iam attach-role-policy \
+    --role-name ROLE_NAME \
+    --policy-arn $POLICY_ARN
+```
+
+### Alternative: Update existing policy if you already have one
+
+```bash
+# List policies attached to the role to find the existing one
+aws iam list-attached-role-policies --role-name YOUR_ROLE_NAME
+
+# Update existing policy (replace POLICY_ARN with the actual ARN)
+aws iam create-policy-version \
+    --policy-arn POLICY_ARN \
+    --policy-document file://lambda-policy.json \
+    --set-as-default
 ```
 
 ## 4. Test the Setup
