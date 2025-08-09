@@ -252,8 +252,6 @@ Hai ricevuto una nuova conferma di partecipazione per il battesimo di Emma! 🎉
 
 📅 Data conferma: {form_data.get('timestamp', 'N/A')}
 
-Grazie per aver confermato la partecipazione! ❤️
-
 ---
 Questo messaggio è stato generato automaticamente dal sito dell'invito.
         """.strip()
