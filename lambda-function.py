@@ -37,6 +37,11 @@ def lambda_handler(event, context):
         http_method = event.get('httpMethod', 'GET')
         print(f"HTTP Method: {http_method}")
         
+        # Special case: if the event contains form data directly (API Gateway misconfiguration)
+        if 'action' in event and 'data' in event:
+            print("Direct form data detected - handling as form submission")
+            return handle_direct_form_data(event, response_headers)
+        
         if http_method == 'POST':
             # Handle form submission
             return handle_confirmation_form(event, response_headers)
@@ -54,6 +59,60 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'error': 'Internal server error',
                 'details': str(e)
+            })
+        }
+
+def handle_direct_form_data(event, response_headers):
+    """Handle form data sent directly in the event (API Gateway misconfiguration workaround)"""
+    
+    print("=== HANDLING DIRECT FORM DATA ===")
+    
+    # Extract form data directly from event
+    action = event.get('action')
+    form_data = event.get('data', {})
+    
+    print(f"Direct Action: {action}")
+    print(f"Direct Form data: {form_data}")
+    
+    if action != 'confirmation':
+        return {
+            'statusCode': 400,
+            'headers': response_headers,
+            'body': json.dumps({
+                'error': 'Invalid action'
+            })
+        }
+    
+    # Validate required fields
+    required_fields = ['fullName', 'participants']
+    for field in required_fields:
+        if not form_data.get(field):
+            return {
+                'statusCode': 400,
+                'headers': response_headers,
+                'body': json.dumps({
+                    'error': f'Missing required field: {field}'
+                })
+            }
+    
+    # Send email confirmation
+    email_sent = send_confirmation_email(form_data)
+    
+    if email_sent:
+        return {
+            'statusCode': 200,
+            'headers': response_headers,
+            'body': json.dumps({
+                'success': True,
+                'message': 'Confirmation received and email sent successfully'
+            })
+        }
+    else:
+        return {
+            'statusCode': 500,
+            'headers': response_headers,
+            'body': json.dumps({
+                'error': 'Failed to send confirmation email'
             })
         }
 
@@ -134,9 +193,11 @@ def send_confirmation_email(form_data):
     try:
         # Get email from environment variable or Systems Manager
         recipient_email = os.environ.get('RECIPIENT_EMAIL')
+        print(f"Environment RECIPIENT_EMAIL: {recipient_email}")
         
         if not recipient_email:
             # Try Systems Manager Parameter Store
+            print("Trying Systems Manager Parameter Store...")
             ssm = boto3.client('ssm')
             try:
                 response = ssm.get_parameter(
@@ -144,38 +205,63 @@ def send_confirmation_email(form_data):
                     WithDecryption=True
                 )
                 recipient_email = response['Parameter']['Value']
+                print(f"Got email from SSM: {recipient_email}")
             except ClientError as e:
-                print(f"Error getting recipient email: {e}")
+                print(f"Error getting recipient email from SSM: {e}")
                 return False
         
         if not recipient_email:
-            print("No recipient email configured")
+            print("No recipient email configured - check environment variables or SSM parameter")
             return False
         
+        print(f"Using recipient email: {recipient_email}")
+        
         # Create SES client
-        ses = boto3.client('ses', region_name='eu-north-1')  # or your preferred region
+        print("Creating SES client...")
+        ses = boto3.client('ses', region_name='eu-north-1')
+        
+        # Check if email is verified in SES
+        try:
+            verification_response = ses.get_identity_verification_attributes(
+                Identities=[recipient_email]
+            )
+            verification_status = verification_response.get('VerificationAttributes', {}).get(recipient_email, {}).get('VerificationStatus', 'Unknown')
+            print(f"Email verification status: {verification_status}")
+            
+            if verification_status != 'Success':
+                print(f"ERROR: Email {recipient_email} is not verified in SES. Status: {verification_status}")
+                print("Please verify your email in AWS SES first!")
+                return False
+        except Exception as ve:
+            print(f"Error checking email verification: {ve}")
+            print("Continuing anyway...")
         
         # Format email content
         subject = f"Conferma Partecipazione Battesimo Emma - {form_data.get('fullName', 'Unknown')}"
+        print(f"Email subject: {subject}")
         
         # Create email body
-        email_body = f"""
-Nuova conferma di partecipazione per il battesimo di Emma:
+        email_body = f"""Ciao!
 
-Nome e Cognome: {form_data.get('fullName', 'N/A')}
-Numero di partecipanti: {form_data.get('participants', 'N/A')}
-Intolleranze alimentari: {form_data.get('intolerances', 'Nessuna specificata')}
-Note aggiuntive: {form_data.get('notes', 'Nessuna nota')}
+Hai ricevuto una nuova conferma di partecipazione per il battesimo di Emma! 🎉
 
-Data conferma: {form_data.get('timestamp', 'N/A')}
+👤 Nome e Cognome: {form_data.get('fullName', 'N/A')}
+👥 Numero di partecipanti: {form_data.get('participants', 'N/A')}
+🍽️ Intolleranze alimentari: {form_data.get('intolerances', 'Nessuna specificata')}
+📝 Note aggiuntive: {form_data.get('notes', 'Nessuna nota')}
+
+📅 Data conferma: {form_data.get('timestamp', 'N/A')}
+
+Grazie per aver confermato la partecipazione! ❤️
 
 ---
-Messaggio automatico dal sistema di conferma partecipazioni
+Questo messaggio è stato generato automaticamente dal sito dell'invito.
         """.strip()
         
         # Send email
+        print(f"Attempting to send email from {recipient_email} to {recipient_email}")
         response = ses.send_email(
-            Source=recipient_email,  # Sender (must be verified in SES)
+            Source=f"Battesimo Emma <{recipient_email}>",  # Sender with friendly name
             Destination={
                 'ToAddresses': [recipient_email]
             },
@@ -193,11 +279,19 @@ Messaggio automatico dal sistema di conferma partecipazioni
             }
         )
         
-        print(f"Email sent successfully. MessageId: {response['MessageId']}")
+        print(f"Email sent successfully! MessageId: {response['MessageId']}")
+        print(f"Response: {response}")
         return True
         
+    except ClientError as ce:
+        print(f"AWS ClientError sending email: {ce}")
+        print(f"Error Code: {ce.response['Error']['Code']}")
+        print(f"Error Message: {ce.response['Error']['Message']}")
+        return False
     except Exception as e:
-        print(f"Error sending email: {e}")
+        print(f"General error sending email: {e}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return False
 
 def handle_legacy_whatsapp(event, response_headers):
